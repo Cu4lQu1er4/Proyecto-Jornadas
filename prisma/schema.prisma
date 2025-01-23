@@ -1,0 +1,109 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model WorkdayOpen {
+  employeeId String   @id
+  startTime  DateTime
+  createdAt  DateTime @default(now())
+
+  @@map("workday_open")
+}
+
+model WorkdayHistory {
+  id         String   @id @default(uuid())
+  employeeId String
+  startTime  DateTime
+  endTime    DateTime
+
+  workedMinutes   Int
+  expectedMinutes Int
+  deltaMinutes    Int
+
+  lateArrival Boolean
+  earlyLeave  Boolean
+
+  createdAt DateTime @default(now())
+
+  periodId String
+  period   WorkPeriod @relation(fields: [periodId], references: [id])
+
+  adjustments WorkdayAdjustment[]
+
+  @@map("workday_history")
+}
+
+model WorkdayRules {
+  id          String   @id @default(uuid())
+  baseMinutes Int
+  createdAt   DateTime @default(now())
+
+  breaks WorkdayBreak[]
+}
+
+model WorkdayBreak {
+  id      String @id @default(uuid())
+  rulesId String
+  start   String
+  end     String
+
+  rules WorkdayRules @relation(fields: [rulesId], references: [id])
+}
+
+model WorkdayAdjustment {
+  id         String   @id @default(uuid())
+  historyId  String
+  type       String
+  minutes    Int
+  reason     String
+  approvedBy String
+  createdAt  DateTime @default(now())
+
+  history WorkdayHistory @relation(fields: [historyId], references: [id])
+
+  @@map("workday_adjustment")
+}
+
+model WorkPeriod {
+  id        String   @id @default(uuid())
+  year      Int
+  month     Int
+  half      Int
+  startDate DateTime
+  endDate   DateTime
+
+  closedAt DateTime?
+  closedBy String?
+
+  histories WorkdayHistory[]
+
+  @@unique([year, month, half])
+}
+
+enum UserRole {
+  EMPLOYEE
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(uuid())
+  document     String   @unique
+  passwordHash String
+  role         String
+  active       Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+
+  @@map("users")
+}
