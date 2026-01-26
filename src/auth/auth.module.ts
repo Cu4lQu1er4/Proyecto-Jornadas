@@ -8,6 +8,9 @@ import { USER_REPO } from "./domain/user.repo";
 import { UserRepoDb } from "./infrastructure/user.repo.db";
 import { PASSWORD_HASHER } from "./domain/password";
 import { BcryptPasswordHasher } from "./infrastructure/bcrypt.hasher";
+import { ListEmployees } from "./application/list.employees";
+import { DeactivateEmployee } from "./application/deactivate-employee";
+import { WorkModule } from "src/work/work.module";
 
 @Module({
   imports: [
@@ -15,12 +18,15 @@ import { BcryptPasswordHasher } from "./infrastructure/bcrypt.hasher";
       secret: process.env.JWT_SECRET!,
       signOptions: { expiresIn: "10h" },
     }),
+    WorkModule,
   ],
   controllers: [AuthController],
   providers: [
     Login,
     PrismaService,
     JwtStrategy,
+    ListEmployees,
+    DeactivateEmployee,
 
     {
       provide: USER_REPO,

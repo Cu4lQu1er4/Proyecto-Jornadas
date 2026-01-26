@@ -31,4 +31,8 @@ export interface WorkdayHistoryReader {
     from?: Date,
     to?: Date,
   ): Promise<WorkdayHistoryEntryWithAdjustments[]>;
+  findByEmployeeAndPeriod(
+    employeeId: string,
+    periodId: string
+  ): Promise<WorkdayHistoryEntry[]>;
 }

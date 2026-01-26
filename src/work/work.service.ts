@@ -10,6 +10,8 @@ import { AddWorkdayAdjustment } from "./application/add-adjustment";
 import { WorkdayAdjustmentRepoDb } from "./infrastructure/adjustment.repo.db";
 import { PeriodRepoDb } from "./infrastructure/period.repo.db";
 import { PeriodRepo } from "./domain/period.repo";
+import { ListPeriods } from "./application/list-periods";
+import { ClosePeriod } from "./application/close-period";
 
  
 @Injectable()
@@ -22,6 +24,8 @@ export class WorkService {
   private adjustmentRepo: WorkdayAdjustmentRepoDb;
   private addAdjustmentUC: AddWorkdayAdjustment;
   private periodRepo: PeriodRepo;
+  private listPeriodUC: ListPeriods;
+  private closePeriodUC: ClosePeriod;
 
   constructor(prisma: PrismaService) {
     this.repo = new WorkdayRepoDb(prisma);
@@ -40,6 +44,8 @@ export class WorkService {
       this.historyRepo,
       this.adjustmentRepo,
     );
+    this.listPeriodUC = new ListPeriods(this.periodRepo);
+    this.closePeriodUC = new ClosePeriod(this.periodRepo);
   }
 
   async start(employeeId: string): Promise<void> {
@@ -62,9 +68,7 @@ export class WorkService {
     to?: Date,
   ) {
     return this.historyUC.execute({
-      employeeId,
-      from,
-      to,
+      employeeId
     });
   }
 
@@ -76,5 +80,13 @@ export class WorkService {
     approvedBy: string;
   }): Promise<void> {
     await this.addAdjustmentUC.execute(cmd);
+  }
+
+  async listPeriods(params: { page?: number; limit?: number }) {
+    return this.listPeriodUC.execute(params);
+  }
+
+  async closePeriod(periodId: string, closedBy: string) {
+    return this.closePeriodUC.execute({ periodId, closedBy });
   }
 }

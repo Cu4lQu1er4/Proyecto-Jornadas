@@ -3,7 +3,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { WorkdayOpenError } from '../domain/errors';
 import { WorkdayHistoryEntry } from '../domain/history.repo';
+import { Injectable } from '@nestjs/common';
 
+@Injectable()
 export class WorkdayRepoDb implements WorkdayRepo {
   constructor(
     private readonly prisma: PrismaService

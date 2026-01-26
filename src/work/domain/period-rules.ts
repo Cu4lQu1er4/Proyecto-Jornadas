@@ -1,3 +1,6 @@
+import { Period } from "./period";
+import { PeriodClosedError } from "./errors";
+
 export interface PeriodDescriptor {
   year: number;
   month: number;
@@ -31,4 +34,10 @@ export function getPeriodForDate(date: Date): PeriodDescriptor {
     startDate,
     endDate,
   };
+}
+
+export function ensurePeriodIsOpen(period: Period): void {
+  if (period.closedAt) {
+    throw new PeriodClosedError();
+  }
 }

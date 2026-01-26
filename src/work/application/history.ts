@@ -6,8 +6,7 @@ import { applyAdjustments } from "../domain/apply-adjustments";
 
 export interface GetHistoryCmd {
   employeeId: string;
-  from?: Date;
-  to?: Date;
+  periodId?: string;
 }
 
 export interface WorkHistorySummary {
@@ -27,9 +26,11 @@ export class GetWorkHistory {
   ) {}
 
   async execute(cmd: GetHistoryCmd) {
-    const { employeeId, from, to } = cmd;
+    const { employeeId, periodId } = cmd;
 
-    let entries = await this.historyRepo.findByEmployee(employeeId);
+    const entries = periodId
+      ? await this.historyRepo.findByEmployeeAndPeriod(employeeId, periodId)
+      : await this.historyRepo.findByEmployee(employeeId);
 
     const enriched = entries.map(entry => {
       const finalDeltaMinutes = entry.deltaMinutes;

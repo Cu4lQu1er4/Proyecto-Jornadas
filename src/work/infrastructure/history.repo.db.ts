@@ -109,4 +109,31 @@ export class WorkdayHistoryRepoDb
       })),
     }));
   }
+
+  async findByEmployeeAndPeriod(
+    employeeId: string,
+    periodId: string
+  ): Promise<WorkdayHistoryEntry[]> {
+    const rows = await this.prisma.workdayHistory.findMany({
+      where: {
+        employeeId,
+        periodId,
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    return rows.map(row => ({
+      id: row.id,
+      employeeId: row.employeeId,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      workedMinutes: row.workedMinutes,
+      expectedMinutes: row.expectedMinutes,
+      deltaMinutes: row.deltaMinutes,
+      lateArrival: row.lateArrival,
+      earlyLeave: row.earlyLeave,
+      periodId: row.periodId,
+      createdAt: row.createdAt,
+    }));
+  }
 }

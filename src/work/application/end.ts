@@ -6,6 +6,7 @@ import { WorkdayRules } from "../domain/rules";
 import { PeriodRepo } from "../domain/period.repo";
 import { getPeriodForDate } from "../domain/period-rules";
 import { applyBreaks } from "../domain/apply-rules";
+import { ensurePeriodIsOpen } from "../domain/period-rules";
 
 export interface EndCmd {
   employeeId: string;
@@ -39,6 +40,8 @@ export class EndWorkday {
 
     const periodDesc = getPeriodForDate(now);
     const period = await this.periodRepo.findOrCreate(periodDesc);
+
+    ensurePeriodIsOpen(period);
 
     const workday = new Workday(startTime, now);
 

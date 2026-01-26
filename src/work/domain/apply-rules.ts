@@ -23,7 +23,7 @@ export function applyBreaks(
     breakEnd.setHours(eh, em, 0, 0);
 
     const overlapStart = Math.max(start.getTime(), breakStart.getTime());
-    const overlapEnd = Math.min(start.getTime(), breakEnd.getTime());
+    const overlapEnd = Math.min(end.getTime(), breakEnd.getTime());
 
     if (overlapEnd > overlapStart) {
       deductedMinutes += (overlapEnd - overlapStart) / 1000 / 60;

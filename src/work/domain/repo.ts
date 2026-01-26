@@ -1,3 +1,5 @@
+export const WORKDAY_REPO = Symbol('WORKDAY_REPO');
+
 export interface WorkdayRepo {
   hasOpen(employeeId: string): Promise<boolean>;
 

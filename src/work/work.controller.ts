@@ -8,6 +8,8 @@ import {
   Body,
   Req,
   UseGuards,
+  Patch,
+  Param,
 } from "@nestjs/common";
 import type { Request } from "express";
 import { WorkService } from "./work.service";
@@ -15,11 +17,14 @@ import { WorkdayOpenError } from "./domain/errors";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { Roles } from "src/auth/roles.decorator";
 import { Role } from "src/auth/roles.enum";
+import { RolesGuard } from "src/auth/roles.guard";
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("work")
 export class WorkController {
-  constructor(private readonly service: WorkService) {}
+  constructor(
+    private readonly service: WorkService,
+  ) {}
 
   @Roles(Role.EMPLOYEE)
   @Post("start")
@@ -106,5 +111,29 @@ export class WorkController {
     });
 
     return { status: "OK" };
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get("periods")
+  async listPeriods(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.service.listPeriods({
+      page,
+      limit,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch('periods/:id/close')
+  async closePeriod(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    await this.service.closePeriod(id, req.user.sub);
+    return { success: true };
   }
 }

@@ -4,17 +4,17 @@ import * as bcrypt from "bcrypt";
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash("admin123", 10);
+  const passwordHash = await bcrypt.hash("buenas123", 10);
 
   await prisma.user.upsert({
     where: {
-      document: "ADMIN-001",
+      document: "EMP-2",
     },
     update: {},
     create: {
-      document: "ADMIN-001",
+      document: "EMP-2",
       passwordHash,
-      role: "ADMIN",
+      role: "EMPLOYEE",
       active: true,
     },
   });

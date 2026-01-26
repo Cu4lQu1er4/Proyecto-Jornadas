@@ -17,4 +17,11 @@ export interface PeriodRepo {
   create(desc: PeriodDescriptor): Promise<Period>;
   findOrCreate(desc: PeriodDescriptor): Promise<Period>;
   close(id: string, data: { closedAt: Date; closedBy: string }): Promise<void>;
+  list(params: {
+    page: number
+    limit: number
+  }): Promise<{
+    total: number
+    items: Period[]
+  }>;
 }
