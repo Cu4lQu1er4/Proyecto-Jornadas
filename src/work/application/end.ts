@@ -37,6 +37,7 @@ export class EndWorkday {
     if (!hasOpen) throw new WorkdayOpenError();
 
     const startTime = await this.repo.getStart(employeeId);
+    if (!startTime) throw new WorkdayOpenError();
 
     const periodDesc = getPeriodForDate(now);
     const period = await this.periodRepo.findOrCreate(periodDesc);

@@ -11,6 +11,9 @@ import { BcryptPasswordHasher } from "./infrastructure/bcrypt.hasher";
 import { ListEmployees } from "./application/list.employees";
 import { DeactivateEmployee } from "./application/deactivate-employee";
 import { WorkModule } from "src/work/work.module";
+import { AuthService } from "./application/auth.service";
+
+console.log('JWT_SECRET:', process.env.JWT_SECRET);
 
 @Module({
   imports: [
@@ -27,6 +30,7 @@ import { WorkModule } from "src/work/work.module";
     JwtStrategy,
     ListEmployees,
     DeactivateEmployee,
+    AuthService,
 
     {
       provide: USER_REPO,
@@ -37,6 +41,9 @@ import { WorkModule } from "src/work/work.module";
       provide: PASSWORD_HASHER,
       useClass: BcryptPasswordHasher,
     },
+  ],
+  exports: [
+    AuthService,
   ],
 })
 export class AuthModule {}

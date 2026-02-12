@@ -8,7 +8,10 @@ import {
   UseGuards,
   Patch,
   Param,
+  Res,
+  Req,
 } from "@nestjs/common";
+import type { Response, Request } from "express";
 import { Login } from "./application/login";
 import { Public } from "./public.decorator";
 import { JwtService } from "@nestjs/jwt";
@@ -31,13 +34,11 @@ export class AuthController {
   @Public()
   @Post('login')
   async loginHandler(
-    @Body() body: { document: string; password: string }
+    @Body() body: { document: string; password: string },
+    @Res({ passthrough: true }) res: Response,
   ) {
     try {
-      const user = await this.login.execute({
-        document: body.document,
-        password: body.password,
-      });
+      const user = await this.login.execute(body);
 
       const payload = {
         sub: user.id,
@@ -46,15 +47,44 @@ export class AuthController {
 
       const accessToken = this.jwtService.sign(payload);
 
+      res.cookie('access_token', accessToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        maxAge: 1000 * 60 * 60 * 10,
+      });
+
       return {
         accessToken,
+        employee: {
+          id: user.id,
+          document: user.document,
+          role: user.role,
+        },
       };
-    } catch (e) {
+    } catch {
       throw new HttpException(
-        "Credenciales invalidas",
+        'Credenciales invalidas',
         HttpStatus.UNAUTHORIZED
       );
     }
+  }
+
+  @Post('logout')
+  async logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('access_token');
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  async me(@Req() req: Request) {
+    const user = req.user!;
+
+    return {
+      id: user['sub'],
+      role: user['role'],
+    };
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -8,6 +8,9 @@ import { AuthModule } from './auth/auth.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
+import { KioskModule } from './kiosk/kiosk.module';
+import { AdminCaseModule } from './admin-case/admin-case.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -18,6 +21,9 @@ import { RolesGuard } from './auth/roles.guard';
     PrismaModule,
     WorkModule,
     AuthModule,
+    KioskModule,
+    AdminCaseModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [

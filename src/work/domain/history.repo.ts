@@ -1,7 +1,7 @@
 export interface WorkdayHistoryCreate {
   employeeId: string;
   startTime: Date;
-  endTime: Date;
+  endTime: Date | null;
   workedMinutes: number;
   expectedMinutes: number;
   deltaMinutes: number;

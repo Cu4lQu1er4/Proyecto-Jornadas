@@ -13,31 +13,42 @@ import {
 } from "@nestjs/common";
 import type { Request } from "express";
 import { WorkService } from "./work.service";
-import { WorkdayOpenError } from "./domain/errors";
+import { PeriodHasOpenWorkdaysError, WorkdayOpenError } from "./domain/errors";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { Roles } from "src/auth/roles.decorator";
 import { Role } from "src/auth/roles.enum";
 import { RolesGuard } from "src/auth/roles.guard";
+import { AttendanceSummaryService } from "./application/attendance-summary.service";
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("work")
 export class WorkController {
   constructor(
     private readonly service: WorkService,
+    private readonly attemdamceSummary: AttendanceSummaryService,
   ) {}
 
   @Roles(Role.EMPLOYEE)
   @Post("start")
   async start(@Req() req: Request) {
+    const client = req.headers['x-client'];
+
+    if (client !== 'kiosk') {
+      throw new HttpException(
+        { code: 'KIOSK_ONLY' },
+        HttpStatus.FORBIDDEN
+      );
+    }
+
     const employeeId = (req.user as any).userId;
 
     try {
       await this.service.start(employeeId);
-      return { status: "OK" };
+      return { status: 'OK' };
     } catch (e) {
       if (e instanceof WorkdayOpenError) {
         throw new HttpException(
-          "Jornada ya abierta",
+          { code: 'WORKDAY_ALREADY_OPEN' },
           HttpStatus.CONFLICT
         );
       }
@@ -48,6 +59,15 @@ export class WorkController {
   @Roles(Role.EMPLOYEE)
   @Post("end")
   async end(@Req() req: Request) {
+    const client = req.headers['x-client'];
+
+    if (client !== 'kiosk') {
+      throw new HttpException(
+        { code: 'KIOSK_ONLY' },
+        HttpStatus.FORBIDDEN
+      );
+    }
+
     const employeeId = (req.user as any).userId;
 
     try {
@@ -121,8 +141,8 @@ export class WorkController {
     @Query('limit') limit?: number,
   ) {
     return this.service.listPeriods({
-      page,
-      limit,
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
     });
   }
 
@@ -133,7 +153,74 @@ export class WorkController {
     @Param('id') id: string,
     @Req() req: any,
   ) {
-    await this.service.closePeriod(id, req.user.sub);
-    return { success: true };
+    try {
+      await this.service.closePeriod(id, req.user.sub);
+      return { success: true };
+    } catch (e) {
+      if (e instanceof PeriodHasOpenWorkdaysError) {
+        throw new HttpException(
+          {
+            message: 'No se puede cerrar el periodo',
+            openWorkdays: e.workdays,
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
+      throw e;
+    }
+  }
+
+  @Roles(Role.EMPLOYEE)
+  @Get("my-periods")
+  async myPeriods(@Req() req: any) {
+    const employeeId = req.user.userId;
+    return this.service.listEmployeePeriods(employeeId)
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('admin/employees')
+  async listEmployees() {
+    return this.service.listEmployees();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('admin/employees/:id/history')
+  async employeeHistory(
+    @Param('id') employeeId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.history(
+      employeeId,
+      from ? new Date(from) : undefined,
+      to ? new Date(to) : undefined,
+    );
+  }
+
+  @Roles(Role.EMPLOYEE)
+  @Get('status')
+  async status(@Req() req: any) {
+    const employeeId = req.user.userId;
+    return this.service.workdayStatus(employeeId);
+  }
+
+  @Roles(Role.EMPLOYEE)
+  @Get("my-day")
+  async myDay(
+    @Req() req: any,
+    @Query("date") date?: string,
+  ) {
+    const employeeId = req.user.userId;
+
+    const targerDate =
+      date ??
+      new Date().toISOString().slice(0, 10);
+
+    return this.attemdamceSummary.getDay(
+      employeeId,
+      targerDate,
+    );
   }
 }

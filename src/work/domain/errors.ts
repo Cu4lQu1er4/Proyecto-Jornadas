@@ -21,3 +21,15 @@ export class UserInactiveError extends Error {
     super('Usuario inactivo');
   }
 }
+
+export class PeriodHasOpenWorkdaysError extends Error {
+  constructor(
+    public readonly workdays: {
+      employeeId: string;
+      document: string;
+      startedAt: Date;
+    }[]
+  ) {
+    super('El periodo tiene jornadas abiertas');
+  }
+}

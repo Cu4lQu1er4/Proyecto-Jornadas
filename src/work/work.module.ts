@@ -4,15 +4,19 @@ import { WorkService } from './work.service';
 import { WORKDAY_REPO } from './domain/repo';
 import { WorkdayRepoDb } from './infrastructure/repo.db';
 import { PrismaModule } from 'src/prisma/prisma.module';
-import { ClosePeriod } from './application/close-period';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PERIOD_REPO, PeriodRepoDb } from './infrastructure/period.repo.db';
+import { AttendanceSummaryService } from './application/attendance-summary.service';
+import { AttendanceSummaryController } from './infrastructure/attendance-summary.controller';
 
 @Module({
   imports: [
     PrismaModule,
   ],
-  controllers: [WorkController],
+  controllers: [
+    WorkController,
+    AttendanceSummaryController,
+  ],
   providers: [
     {
       provide: WORKDAY_REPO,
@@ -24,7 +28,11 @@ import { PERIOD_REPO, PeriodRepoDb } from './infrastructure/period.repo.db';
     },
     WorkService,
     PrismaService,
+    AttendanceSummaryService
   ],
-  exports: [WORKDAY_REPO],
+  exports: [
+    WORKDAY_REPO,
+    WorkService,
+  ],
 })
 export class WorkModule {}

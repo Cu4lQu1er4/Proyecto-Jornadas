@@ -55,6 +55,16 @@ export class WorkdayRepoDb implements WorkdayRepo {
     });
   }
 
+  async findOpenByEmployee(employeeId: string) {
+    return this.prisma.workdayHistory.findFirst({
+      where: {
+        employeeId,
+        endTime: null,
+      },
+      orderBy: { startTime: 'desc' }, 
+    });
+  }
+
   async closeWithHistory(
     employeeId: string,
     history: WorkdayHistoryEntry,

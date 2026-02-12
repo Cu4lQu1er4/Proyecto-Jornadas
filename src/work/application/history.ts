@@ -7,6 +7,8 @@ import { applyAdjustments } from "../domain/apply-adjustments";
 export interface GetHistoryCmd {
   employeeId: string;
   periodId?: string;
+  from?: Date;
+  to?: Date;
 }
 
 export interface WorkHistorySummary {

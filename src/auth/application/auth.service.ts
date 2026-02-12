@@ -1,9 +1,12 @@
-import { UserRepo } from "../domain/user.repo";
+import { USER_REPO } from "../domain/user.repo";
+import type { UserRepo } from "../domain/user.repo";
 import { User } from "../domain/user";
 import * as bcrypt from "bcrypt";
+import { Inject } from "@nestjs/common";
 
 export class AuthService {
   constructor(
+    @Inject(USER_REPO)
     private readonly userRepo: UserRepo,
   ) {}
 

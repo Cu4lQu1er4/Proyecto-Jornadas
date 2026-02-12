@@ -25,7 +25,7 @@ model WorkdayHistory {
   id         String   @id @default(uuid())
   employeeId String
   startTime  DateTime
-  endTime    DateTime
+  endTime    DateTime?
 
   workedMinutes   Int
   expectedMinutes Int
@@ -106,4 +106,67 @@ model User {
   createdAt    DateTime @default(now())
 
   @@map("users")
+}
+
+enum AdminCaseType {
+  INCAPACITY
+  PERMISSION
+  JUSTIFICATION
+  ABSENCE
+}
+
+enum AdminCaseStatus {
+  DRAFT
+  APPLIED
+  CANCELLED
+}
+
+model AdminCase {
+  id           String          @id @default(uuid())
+  employeeId   String
+  type         AdminCaseType
+  status       AdminCaseStatus @default(DRAFT)
+  reasonCode   String?
+  notes        String?
+  createdBy    String
+  createdAt    DateTime @default(now())
+  appliedBy    String?
+  appliedAt    DateTime?
+  cancelledBy  String?
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  scopes       AdminCaseScope[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@map("admin_case")
+}
+
+model AdminCaseScope {
+  id               String    @id @default(uuid())
+  adminCaseId      String
+  adminCase        AdminCase @relation(fields: [adminCaseId], references: [id], onDelete: Cascade)
+  date             DateTime
+  startMinute      Int?
+  endMinute        Int?
+  workdayHistoryId String?
+  createdAt        DateTime  @default(now())
+
+  @@index([date])
+  @@index([adminCaseId, date])
+  @@map("admin_case_scope")
+}
+
+model AuditEvent {
+  id           String  @id @default(uuid())
+  entityType   String
+  entityId     String
+  action       String
+  performedBy  String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([performedBy])
 }

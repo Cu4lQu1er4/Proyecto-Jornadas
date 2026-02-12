@@ -12,7 +12,8 @@ import { PeriodRepoDb } from "./infrastructure/period.repo.db";
 import { PeriodRepo } from "./domain/period.repo";
 import { ListPeriods } from "./application/list-periods";
 import { ClosePeriod } from "./application/close-period";
-
+import { getExpectedCloseDate } from "./application/period.utils";
+import { distinct } from "rxjs";
  
 @Injectable()
 export class WorkService {
@@ -26,8 +27,10 @@ export class WorkService {
   private periodRepo: PeriodRepo;
   private listPeriodUC: ListPeriods;
   private closePeriodUC: ClosePeriod;
+  private prisma: PrismaService;
 
   constructor(prisma: PrismaService) {
+    this.prisma = prisma;
     this.repo = new WorkdayRepoDb(prisma);
     this.historyRepo = new WorkdayHistoryRepoDb(prisma);
     this.startUC = new StartWorkday(this.repo);
@@ -68,7 +71,9 @@ export class WorkService {
     to?: Date,
   ) {
     return this.historyUC.execute({
-      employeeId
+      employeeId,
+      from,
+      to,
     });
   }
 
@@ -83,10 +88,105 @@ export class WorkService {
   }
 
   async listPeriods(params: { page?: number; limit?: number }) {
-    return this.listPeriodUC.execute(params);
+    const result = await this.listPeriodUC.execute({
+      page: params.page ?? 1,
+      limit: params.limit ?? 10,
+    });
+
+    const now = new Date();
+
+    const items = result.items.map(period => {
+      const expectedCloseAt = getExpectedCloseDate(
+        period.year,
+        period.month,
+        period.half,
+      );
+
+      const isOverdue = 
+        !period.closedAt && now > expectedCloseAt;
+
+        const daysOverdue = isOverdue
+          ? Math.ceil(
+              (now.getTime() - expectedCloseAt.getTime()) /
+              (1000 * 60 * 60 * 24)
+            )
+          : 0;
+
+        return {
+          ...period,
+          expectedCloseAt,
+          isOverdue,
+          daysOverdue,
+        };
+    });
+
+    return {
+      ...result,
+      items,
+    };
   }
 
   async closePeriod(periodId: string, closedBy: string) {
-    return this.closePeriodUC.execute({ periodId, closedBy });
+    return this.closePeriodUC.execute({ 
+      periodId,
+      closedBy, 
+    });
+  }
+
+  async listEmployeePeriods(employeeId: string) {
+    const histories = await this.prisma.workdayHistory.findMany({
+      where: { employeeId },
+      select: { periodId: true },
+      distinct: ['periodId'],
+    });
+
+    if (histories.length === 0) {
+      return [];
+    }
+
+    const periods = await this.prisma.workPeriod.findMany({
+      where: {
+        id: {
+          in: histories.map(h => h.periodId),
+        },
+      },
+      orderBy: [
+        { year: 'desc' },
+        { month: 'desc' },
+        { half: 'desc' },
+      ],
+    });
+
+    return periods;
+  }
+
+  async listEmployees() {
+    return this.prisma.user.findMany({
+      where: { role: 'EMPLOYEE' },
+      select: {
+        id: true,
+        document: true,
+        active: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async workdayStatus(employeeId: string) {
+    const open = await this.prisma.workdayOpen.findUnique({
+      where: {
+        employeeId,
+      },
+      select: {
+        startTime: true,
+      },
+    });
+
+    return {
+      hasOpenWorkday: !!open,
+      startTime: open?.startTime ?? null,
+    };
   }
 }
