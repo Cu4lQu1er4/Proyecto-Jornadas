@@ -41,10 +41,27 @@ export class AttendanceSummaryController {
   }
 
   @Get("report")
-  async report(
+  report(
+    @Query("periodId") periodId: string,
+    @Query("document") document: string,
+  ) {
+
+    if (!periodId || !document) {
+      throw new BadRequestException("periodId y document son requeridos");
+    }
+
+    return this.summaryService.getReport(periodId, document);
+  }
+
+  @Get("summary")
+  summary(
     @Query("periodId") periodId: string,
     @Query("document") document?: string,
   ) {
-      return this.summaryService.getPeriod(periodId, document);
+    if (!periodId) {
+      throw new BadRequestException("periodId es requerido");
     }
+
+    return this.summaryService.getSummary(periodId, document);
+  }
 }

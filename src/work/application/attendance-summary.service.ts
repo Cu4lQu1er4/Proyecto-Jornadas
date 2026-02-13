@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
 import { AdminCaseStatus, AdminCaseType } from "@prisma/client";
+import { workdayRules } from "../workday.rules";
 
 export type AttendanceDaySummary = {
   date: string;
@@ -280,23 +281,63 @@ export class AttendanceSummaryService {
     };
   }
 
-  async getReport(periodId: string, document?: string) {
-    if (!periodId){
-      throw new Error("periodId requerido");
+  async getReport(periodId: string, document: string) {
+    const employee = await this.prisma.user.findUnique({
+      where: { document },
+    });
+
+    if (!employee) {
+      throw new Error("Empleado no existe");
     }
 
-    if (document) {
-      const employee = await this.prisma.employee.findUnique({
-        where: { document },
+    return this.getPeriod(employee.id, periodId);
+  }
+
+  async getSummary(periodId: string, document?: string) {
+    const period = await this.prisma.workPeriod.findUnique({
+      where: { id: periodId },
+    });
+
+    if (!period) {
+      throw new Error("Periodo no existe");
+    }
+
+    const employees = await this.prisma.user.findMany({
+      where: {
+        role: "EMPLOYEE",
+        ...(document ? { document } : {}),
+      },
+    });
+
+    type ReportRow = {
+      employeeId: string;
+      document: string;
+      workedMinutes: number;
+      absences: number;
+      justified: number;
+      status: string;
+    };
+
+    const rows: ReportRow[] = [];
+
+    for (const employee of employees) {
+      const result = await this.getPeriod(employee.id, periodId);
+
+      rows.push({
+        employeeId: employee.id,
+        document: employee.document,
+        workedMinutes: result.totals.worked,
+        absences: result.totals.unjustified,
+        justified: result.totals.justified,
+        status: result.totals.unjustified > 0 ? "IRREGULAR" : "OK",
       });
-
-      if(!employee) {
-        throw new Error("Empleado no existe");
-      }
-
-      return this.getPeriod(employee.id, periodId);
     }
 
-    throw new Error("document requerido por ahora");
+    return {
+      totalEmployees: rows.length,
+      totalAbsences: rows.reduce((a, r) => a + r.absences, 0),
+      totalJustified: rows.reduce((a, r) => a + r.justified, 0),
+      rows,
+    };
   }
 }
