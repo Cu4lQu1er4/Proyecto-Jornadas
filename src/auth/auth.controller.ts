@@ -10,6 +10,8 @@ import {
   Param,
   Res,
   Req,
+  BadRequestException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import type { Response, Request } from "express";
 import { Login } from "./application/login";
@@ -21,6 +23,8 @@ import { JwtAuthGuard } from "./jwt-auth.guard";
 import { RolesGuard } from "./roles.guard";
 import { ListEmployees } from "./application/list.employees";
 import { DeactivateEmployee } from "./application/deactivate-employee";
+import { PrismaService } from "src/prisma/prisma.service";
+import * as bcrypt from "bcrypt";
 
 @Controller('auth')
 export class AuthController {
@@ -29,6 +33,7 @@ export class AuthController {
     private readonly jwtService: JwtService,
     private readonly listEmployees: ListEmployees,
     private readonly deactivateEmployee: DeactivateEmployee,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Public()
@@ -99,6 +104,59 @@ export class AuthController {
   @Patch("employees/:id/deactivate")
   async deactivateEmployeeHabdler(@Param("id") id: string) {
     await this.deactivateEmployee.execute(id);
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("set-pin")
+  async setPin(
+    @Req() req: any,
+    @Body() body: { pin: string }
+  ) {
+    const userId = req.user.sub;
+
+    if (!/^\d{4}$/.test(body.pin)) {
+      throw new BadRequestException("PIN debe ser de 4 digitos");
+    }
+
+    const hash = await bcrypt.hash(body.pin, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { pinHash: hash },
+    });
+
+    return { success: true };
+  }
+
+  @Post("kiosk-login")
+  async kioskLogin(
+    @Body() body: { document: string; pin: string },
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { document: body.document },
+    });
+
+    if (!user || !user.pinHash) {
+      throw new UnauthorizedException("Credenciales invalidas");
+    }
+
+    const valid = await bcrypt.compare(body.pin, user.pinHash);
+
+    if (!valid) {
+      throw new UnauthorizedException("Credenciales invalidas");
+    }
+
+    const token = this.jwtService.sign({
+      sub: user.id,
+      role: user.role,
+    });
+
+    res.cookie("access_token", token, {
+      httpOnly: true,
+    });
+
     return { success: true };
   }
 }
