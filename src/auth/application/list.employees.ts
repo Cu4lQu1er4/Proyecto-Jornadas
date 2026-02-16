@@ -5,8 +5,10 @@ import { Inject } from "@nestjs/common";
 export interface EmployeeListItem {
   id: string;
   document: string;
+  firstName: string | null;
+  lastName: string | null;
   role: string;
-  activate: boolean;
+  active: boolean;
   createdAt: Date;
 }
 
@@ -19,12 +21,16 @@ export class ListEmployees {
   async execute(): Promise<EmployeeListItem[]> {
     const users = await this.userRepo.findAll();
 
-    return users.map(u => ({
-      id: u.id,
-      document: u.document,
-      role: u.role,
-      activate: u.active,
-      createdAt: u.createdAt,
-    }));
+    return users
+      .filter(u => u.role === "EMPLOYEE")
+      .map(u => ({
+        id: u.id,
+        document: u.document,
+        firstName: u.firstName ?? null,
+        lastName: u.lastName ?? null,
+        role: u.role,
+        active: u.active,
+        createdAt: u.createdAt,
+      }));
   }
 }

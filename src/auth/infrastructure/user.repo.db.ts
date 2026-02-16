@@ -10,39 +10,40 @@ export class UserRepoDb implements UserRepo {
     private readonly prisma: PrismaService,
   ) {}
 
-  async findByDocument(document: string): Promise<User | null> {
-    console.log('LOOKING FOR USER:', document);
+  private mapRow(row: any): User {
+    return {
+      id: row.id,
+      document: row.document,
+      passwordHash: row.passwordHash,
+      role: row.role as Role,
+      active: row.active,
+      createdAt: row.createdAt,
+      firstName: row.firstName ?? null,
+      lastName: row.lastName ?? null,
+      pinHash: row.pinHash ?? null,
+      failedPinAttempts: row.failedAttempts ?? 0,
+      pinLockedUntil: row.pinLockedUntil ?? null,
+    };
+  }
 
+  async findByDocument(document: string): Promise<User | null> {
     const row = await this.prisma.user.findUnique({
       where: { document },
     });
 
-    console.log('ROW FROM DB:', row);
-
     if (!row) return null;
 
-    return {
-      id: row.id,
-      document: row.document,
-      passwordHash: row.passwordHash,
-      role: row.role as any,
-      active: row.active,
-      createdAt: row.createdAt,
-    };
+    return this.mapRow(row);
   }
 
   async findById(id: string): Promise<User | null> {
-    const row = await this.prisma.user.findUnique({ where: { id } });
-    if(!row) return null;
+    const row = await this.prisma.user.findUnique({
+      where: { id },
+    });
 
-    return {
-      id: row.id,
-      document: row.document,
-      passwordHash: row.passwordHash,
-      role: row.role as any,
-      active: row.active,
-      createdAt: row.createdAt,
-    };
+    if (!row) return null;
+
+    return this.mapRow(row);
   }
 
   async create(data: {
@@ -54,14 +55,7 @@ export class UserRepoDb implements UserRepo {
       data,
     });
 
-    return {
-      id: row.id,
-      document: row.document,
-      passwordHash: row.passwordHash,
-      role: row.role as Role,
-      active: row.active,
-      createdAt: row.createdAt,
-    };
+    return this.mapRow(row);
   }
 
   async findAll(): Promise<User[]> {
@@ -69,14 +63,7 @@ export class UserRepoDb implements UserRepo {
       orderBy: { createdAt: "desc" },
     });
 
-    return rows.map(row => ({
-      id: row.id,
-      document: row.document,
-      passwordHash: row.passwordHash,
-      role: row.role as Role,
-      active: row.active,
-      createdAt: row.createdAt,
-    }));
+    return rows.map(row => this.mapRow(row));
   }
 
   async deactivate(id: string): Promise<void> {

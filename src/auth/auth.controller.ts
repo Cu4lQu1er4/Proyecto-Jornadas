@@ -45,6 +45,8 @@ export class AuthController {
     try {
       const user = await this.login.execute(body);
 
+      console.log("JWT SIGN SECRET:", process.env.JWT_SECRET);
+
       const payload = {
         sub: user.id,
         role: user.role,
@@ -65,6 +67,8 @@ export class AuthController {
           id: user.id,
           document: user.document,
           role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName,
         },
       };
     } catch {
@@ -84,12 +88,30 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async me(@Req() req: Request) {
-    const user = req.user!;
+    console.log("REQ.USER", req.user);
 
-    return {
-      id: user['sub'],
-      role: user['role'],
-    };
+    if (!req.user || !(req.user as any).userId) {
+      throw new UnauthorizedException("Usuario no autenticado");
+    }
+
+    const userId = (req.user as any).userId;
+
+    console.log("USER ID:", userId);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        document: true,
+        role: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+      },
+    });
+
+    return user;
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -119,6 +141,10 @@ export class AuthController {
       throw new BadRequestException("PIN debe ser de 4 digitos");
     }
 
+    if (["0000", "1111", "1234", "2222", "3333"].includes(body.pin)) {
+      throw new BadRequestException("PIN demasiado inseguro");
+    }
+
     const hash = await bcrypt.hash(body.pin, 10);
 
     await this.prisma.user.update({
@@ -142,11 +168,39 @@ export class AuthController {
       throw new UnauthorizedException("Credenciales invalidas");
     }
 
+    if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
+      throw new UnauthorizedException("PIN temporalmente bloqueado");
+    }
+
     const valid = await bcrypt.compare(body.pin, user.pinHash);
 
     if (!valid) {
+      const attempts = user.failedPinAttempts + 1;
+
+      const updateData: any = {
+        failedPinAttempts: attempts,
+      };
+
+      if (attempts >= 3) {
+        updateData.pinLockedUntil = new Date(Date.now() + 5 * 60 * 1000);
+        updateData.failedPinAttempts = 0;
+      }
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: updateData,
+      });
+
       throw new UnauthorizedException("Credenciales invalidas");
     }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedPinAttempts: 0,
+        pinLockedUntil: null,
+      },
+    });
 
     const token = this.jwtService.sign({
       sub: user.id,
@@ -155,6 +209,9 @@ export class AuthController {
 
     res.cookie("access_token", token, {
       httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+      maxAge: 1000 * 60 * 10
     });
 
     return { success: true };

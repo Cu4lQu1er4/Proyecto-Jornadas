@@ -7,4 +7,9 @@ export interface User {
   role: Role;
   active: boolean;
   createdAt: Date;
+  firstName: string | null;
+  lastName: string | null;
+  pinHash: string | null;
+  failedPinAttempts: number;
+  pinLockedUntil: Date | null;
 }
