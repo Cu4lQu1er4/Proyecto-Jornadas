@@ -169,6 +169,10 @@ export class WorkService {
         active: true,
         role: true,
         createdAt: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
       },
       orderBy: { createdAt: 'desc' },
     });

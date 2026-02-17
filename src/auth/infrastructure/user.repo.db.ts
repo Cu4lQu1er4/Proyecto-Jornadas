@@ -20,6 +20,8 @@ export class UserRepoDb implements UserRepo {
       createdAt: row.createdAt,
       firstName: row.firstName ?? null,
       lastName: row.lastName ?? null,
+      phone: row.phone ?? null,
+      email: row.email ?? null,
       pinHash: row.pinHash ?? null,
       failedPinAttempts: row.failedAttempts ?? 0,
       pinLockedUntil: row.pinLockedUntil ?? null,

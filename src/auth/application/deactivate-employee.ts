@@ -23,7 +23,7 @@ export class DeactivateEmployee {
 
     const hasOpenWorkday = await this.workdayRepo.hasOpen(employeeId);
 
-    if (!hasOpenWorkday) {
+    if (hasOpenWorkday) {
       throw new WorkdayOpenError();
     }
 

@@ -45,7 +45,6 @@ export class AuthController {
     try {
       const user = await this.login.execute(body);
 
-      console.log("JWT SIGN SECRET:", process.env.JWT_SECRET);
 
       const payload = {
         sub: user.id,
@@ -53,6 +52,11 @@ export class AuthController {
       };
 
       const accessToken = this.jwtService.sign(payload);
+
+      const needsOnboarding =
+        !user.firstName ||
+        !user.lastName ||
+        !user.pinHash;
 
       res.cookie('access_token', accessToken, {
         httpOnly: true,
@@ -70,6 +74,7 @@ export class AuthController {
           firstName: user.firstName,
           lastName: user.lastName,
         },
+        needsOnboarding,
       };
     } catch {
       throw new HttpException(
@@ -88,15 +93,11 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async me(@Req() req: Request) {
-    console.log("REQ.USER", req.user);
-
     if (!req.user || !(req.user as any).userId) {
       throw new UnauthorizedException("Usuario no autenticado");
     }
 
     const userId = (req.user as any).userId;
-
-    console.log("USER ID:", userId);
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -108,10 +109,17 @@ export class AuthController {
         lastName: true,
         email: true,
         phone: true,
+        pinHash: true,
       },
     });
 
-    return user;
+    if (!user) throw new UnauthorizedException("Usuario no autenticado");
+
+    const { pinHash, ...safe } = user;
+    return {
+      ...safe,
+      hasPin: !!pinHash,
+    };
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -135,7 +143,7 @@ export class AuthController {
     @Req() req: any,
     @Body() body: { pin: string }
   ) {
-    const userId = req.user.sub;
+    const userId = req.user.userId;
 
     if (!/^\d{4}$/.test(body.pin)) {
       throw new BadRequestException("PIN debe ser de 4 digitos");
@@ -212,6 +220,88 @@ export class AuthController {
       sameSite: "lax",
       secure: false,
       maxAge: 1000 * 60 * 10
+    });
+
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("complete-profile")
+  async completeProfile(
+    @Req() req: any,
+    @Body() body: {
+      firstName: string;
+      lastName: string;
+      phone?: string;
+      email?: string;
+      pin: string;
+    }
+  ) {
+    const userId = req.user.userId;
+
+    if (!body.firstName?.trim()) {
+      throw new BadRequestException("Nombre es obligatorio");
+    }
+
+    if (!body.lastName?.trim()) {
+      throw new BadRequestException("Apellido es obligatorio");
+    }
+
+    if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+      throw new BadRequestException("Telefono invalido");
+    }
+
+    if (!/^\d{4}$/.test(body.pin)) {
+      throw new BadRequestException("PIN invalido");
+    }
+
+    if (["0000", "1111", "1234", "2222", "3333"].includes(body.pin)) {
+      throw new BadRequestException("PIN demasiado inseguro");
+    }
+
+    const hash = await bcrypt.hash(body.pin, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        firstName: body.firstName.trim(),
+        lastName: body.lastName.trim(),
+        phone: body.phone ? body.phone.trim() : null,
+        email: body.email ? body.email.trim() : null,
+        pinHash: hash,
+        failedPinAttempts: 0,
+        pinLockedUntil: null,
+      },
+    });
+
+    return { success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("change-pin")
+  async changePin(
+    @Req() req: any,
+    @Body() body: { newPin: string }
+  ) {
+    const userId = req.user.userId;
+
+    if (!/^\d{4}$/.test(body.newPin)) {
+      throw new BadRequestException("PIN invalido");
+    }
+
+    if (["0000", "1111", "1234"].includes(body.newPin)) {
+      throw new BadRequestException("PIN demasiado inseguro");
+    }
+
+    const hash = await bcrypt.hash(body.newPin, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        pinHash: hash,
+        failedPinAttempts: 0,
+        pinLockedUntil: null,
+      },
     });
 
     return { success: true };

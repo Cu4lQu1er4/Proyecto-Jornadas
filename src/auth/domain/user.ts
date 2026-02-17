@@ -9,6 +9,8 @@ export interface User {
   createdAt: Date;
   firstName: string | null;
   lastName: string | null;
+  phone: string | null;
+  email: string | null;
   pinHash: string | null;
   failedPinAttempts: number;
   pinLockedUntil: Date | null;

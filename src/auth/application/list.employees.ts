@@ -5,11 +5,11 @@ import { Inject } from "@nestjs/common";
 export interface EmployeeListItem {
   id: string;
   document: string;
-  firstName: string | null;
-  lastName: string | null;
   role: string;
   active: boolean;
   createdAt: Date;
+  firstName: string | null;
+  lastName: string | null;
 }
 
 export class ListEmployees {
@@ -26,11 +26,11 @@ export class ListEmployees {
       .map(u => ({
         id: u.id,
         document: u.document,
-        firstName: u.firstName ?? null,
-        lastName: u.lastName ?? null,
         role: u.role,
         active: u.active,
         createdAt: u.createdAt,
+        firstName: u.firstName ?? null,
+        lastName: u.lastName ?? null,
       }));
   }
 }
