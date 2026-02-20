@@ -13,8 +13,11 @@ import { PeriodRepo } from "./domain/period.repo";
 import { ListPeriods } from "./application/list-periods";
 import { ClosePeriod } from "./application/close-period";
 import { getExpectedCloseDate } from "./application/period.utils";
-import { distinct } from "rxjs";
- 
+import { EmployeeScheduleService } from "./application/employee-schedule.service";
+import * as bcrypt from "bcrypt";
+import { CreateEmployeeDto } from "./application/create-employee.dto";
+import { CompleteProfileDto } from "./application/complete-profile.dto";
+
 @Injectable()
 export class WorkService {
   private repo: WorkdayRepoDb;
@@ -35,11 +38,13 @@ export class WorkService {
     this.historyRepo = new WorkdayHistoryRepoDb(prisma);
     this.startUC = new StartWorkday(this.repo);
     this.periodRepo = new PeriodRepoDb(prisma);
+    const scheduleService = new EmployeeScheduleService(prisma);
     this.endUC = new EndWorkday(
       this.repo,
       this.historyRepo,
       workdayRules,
       this.periodRepo,
+      scheduleService,
     );
     this.historyUC = new GetWorkHistory(this.historyRepo);
     this.adjustmentRepo = new WorkdayAdjustmentRepoDb(prisma);
@@ -192,5 +197,76 @@ export class WorkService {
       hasOpenWorkday: !!open,
       startTime: open?.startTime ?? null,
     };
+  }
+
+  async createEmployee(dto: CreateEmployeeDto, adminId: string) {
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          document: dto.document,
+          passwordHash,
+          role: "EMPLOYEE",
+          active: true,
+          mustChangePassword: true,
+          profileCompleted: false,
+        },
+        select: {
+          id: true,
+          document: true,
+          role: true,
+          active: true,
+          createdAt: true,
+        },
+      });
+
+      await tx.employeeScheduleAssignment.create({
+        data: {
+          employeeId: user.id,
+          scheduleTemplateId: dto.scheduleTemplateId,
+          effectiveFrom: new Date(),
+        },
+      });
+
+      return user;
+    });
+  }
+
+  async completeProfile(userId: string, dto: CompleteProfileDto) {
+    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    const pinHash = await bcrypt.hash(dto.pin, 10);
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.lastName,
+        phone: dto.phone,
+        passwordHash,
+        pinHash,
+        mustChangePassword: false,
+        profileCompleted: true,
+      },
+      select : {
+        id: true,
+        document: true,
+        role: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        mustChangePassword: true,
+        profileCompleted: true,
+      },
+    }); 
+  }
+
+  async toggleActive(userId: string, active: boolean) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { active },
+    });
   }
 }

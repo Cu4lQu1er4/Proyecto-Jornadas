@@ -1,12 +1,14 @@
 import { Workday } from "../domain/workday";
 import { WorkdayRepo } from "../domain/repo";
-import { WorkdayHistoryWriter, WorkdayHistoryCreate } from "../domain/history.repo";
+import {
+  WorkdayHistoryWriter,
+  WorkdayHistoryCreate,
+} from "../domain/history.repo";
 import { WorkdayOpenError } from "../domain/errors";
 import { WorkdayRules } from "../domain/rules";
 import { PeriodRepo } from "../domain/period.repo";
-import { getPeriodForDate } from "../domain/period-rules";
-import { applyBreaks } from "../domain/apply-rules";
-import { ensurePeriodIsOpen } from "../domain/period-rules";
+import { getPeriodForDate, ensurePeriodIsOpen } from "../domain/period-rules";
+import { EmployeeScheduleService } from "./employee-schedule.service";
 
 export interface EndCmd {
   employeeId: string;
@@ -28,6 +30,7 @@ export class EndWorkday {
     private readonly historyRepo: WorkdayHistoryWriter,
     private readonly rules: WorkdayRules,
     private readonly periodRepo: PeriodRepo,
+    private readonly scheduleService: EmployeeScheduleService,
   ) {}
 
   async execute(cmd: EndCmd): Promise<EndResult> {
@@ -41,29 +44,21 @@ export class EndWorkday {
 
     const periodDesc = getPeriodForDate(now);
     const period = await this.periodRepo.findOrCreate(periodDesc);
-
     ensurePeriodIsOpen(period);
 
     const workday = new Workday(startTime, now);
 
-    const grossWorkedMinutes = workday.workedMinutes(this.rules);
+    const days = await this.scheduleService.getScheduleForEmployee(employeeId, now);
 
-    const breakMinutes = applyBreaks (
-      startTime,
-      now,
-      this.rules.breaks,
-    );
+    const expectedMinutes = workday.expectedMinutesFromSchedule(days ?? []);
 
-    const workedMinutes = Math.max(
-      0,
-      grossWorkedMinutes - breakMinutes
-    );
+    const workedMinutes = workday.workedMinutes(this.rules);
 
-    const expectedMinutes = workday.expectedMinutes(this.rules);
     const deltaMinutes = workedMinutes - expectedMinutes;
 
-    const lateArrival = workday.isLateArrival(this.rules);
-    const earlyLeave = workday.isEarlyLeave(this.rules);
+  
+    const lateArrival = workday.lateArrival(this.rules);
+    const earlyLeave = workday.earlyLeave(this.rules);
 
     await this.repo.close(employeeId, now);
 

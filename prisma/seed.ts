@@ -4,22 +4,21 @@ import * as bcrypt from "bcrypt";
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash("buenas123", 10);
+  const passwordHash = await bcrypt.hash("admin123", 10);
 
   await prisma.user.upsert({
     where: {
-      document: "EMP-2",
+      document: "ADMIN-1",
     },
     update: {},
     create: {
-      document: "EMP-2",
+      document: "ADMIN-1",
       passwordHash,
-      role: "EMPLOYEE",
+      role: "ADMIN",
       active: true,
     },
   });
 
-  console.log("Usuario admin creado");
 }
 
 main()

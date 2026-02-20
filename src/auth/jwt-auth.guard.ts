@@ -34,13 +34,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
         `Bearer ${request.cookies.access_token}`;
     }
 
-    console.log(
-      '[JWT_GUARD',
-      'URL', request.url,
-      '| isPublic', isPublic,
-      '| Authorization', request.headers.authorization,
-    );
-
     if (isPublic) {
       return true;
     }

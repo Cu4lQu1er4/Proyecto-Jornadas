@@ -41,7 +41,7 @@ export class AdminCaseService {
     private readonly audit: AuditService,
   ) {}
 
-  async createDraft(dto: CreateAdminCaseDto, createdBy: string) {
+  async createByEmployee(dto: CreateAdminCaseDto, employeeId: string) {
     const scopeDates = dto.scopes.map(s => normalizeDay(s.date));
     await assertNoClosedPeriods(this.prisma, scopeDates);
 
@@ -55,7 +55,6 @@ export class AdminCaseService {
         workdayHistoryId: s.workdayHistoryId ?? null,
       };
     });
-
     for (const scope of scopes) {
       const operational = await this.isOperationalDay(
         dto.employeeId,
@@ -66,7 +65,7 @@ export class AdminCaseService {
         throw new BadRequestException({
           code: 'NON_OPERATIONAL_DAY',
           message:
-            'No se puede crear un caso administrativo en un dia no laborable',
+            'No se puede crear una solicitud en un dia no laborable',
           date: scope.date.toISOString().slice(0, 10),
         });
       }
@@ -76,10 +75,10 @@ export class AdminCaseService {
       data: {
         employeeId: dto.employeeId,
         type: dto.type,
-        status: AdminCaseStatus.DRAFT,
+        status: AdminCaseStatus.PENDING,
         reasonCode: dto.reasonCode,
         notes: dto.notes,
-        createdBy,
+        createdBy: employeeId,
         scopes: { create: scopes },
       },
       include: { scopes: true },
@@ -88,13 +87,8 @@ export class AdminCaseService {
     await this.audit.log({
       entityType: "ADMIN_CASE",
       entityId: created.id,
-      action: "CREATE_DRAFT",
-      performedBy: createdBy,
-      metadata: {
-        employeeId: dto.employeeId,
-        type: dto.type,
-        scopesCount: scopes.length,
-      },
+      action: "EMPLOYEE_SUBMITED",
+      performedBy: employeeId,
     });
 
     return created;
@@ -117,7 +111,7 @@ export class AdminCaseService {
       });
     }
 
-    if (adminCase.status !== AdminCaseStatus.DRAFT) {
+    if (adminCase.status !== AdminCaseStatus.PENDING) {
       throw new BadRequestException({
         code: 'INVALID_CASE_STATUS',
         message: `No se puede aplicar un caso en estado ${adminCase.status}`,
@@ -237,34 +231,105 @@ export class AdminCaseService {
   }
 
   async isOperationalDay(employeeId: string, date: Date): Promise<boolean> {
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
+    const day = new Date(date);
+    day.setHours(0, 0, 0, 0);
 
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-
-    const history = await this.prisma.workdayHistory.findFirst({
+    const assignment = await this.prisma.employeeScheduleAssignment.findFirst({
       where: {
         employeeId,
-        startTime: {
-          gte: start,
-          lt: end,
+        effectiveFrom: { lte: day },
+        OR: [
+          { effectiveTo: null },
+          { effectiveTo: { gte: day } },
+        ],
+      },
+      include: {
+        template: {
+          include: {
+            days: true,
+          },
         },
       },
     });
 
-    return !!history;
+    if (!assignment) return false;
+
+    const weekday = day.getDay();
+
+    const hasDay = assignment.template.days.some(
+      d => d.weekday === weekday
+    );
+
+    return hasDay;
   }
 
-  async listByEmployee(employeeId: string) {
-    return this.prisma.adminCase.findMany({
-      where: { employeeId },
-      include: {
-        scopes: true,
+  async listByEmployee(
+    employeeId: string,
+    page: number = 1,
+    limit: number = 10,
+  ) {
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.prisma.adminCase.findMany({
+        where: { employeeId },
+        include: { scopes: true },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      this.prisma.adminCase.count({
+        where: { employeeId },
+      }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
       },
-      orderBy: {
-        createdAt: "desc",
+    };
+  }
+
+  async reject(caseId: string, reason: string, adminId: string) {
+    const adminCase = await this.prisma.adminCase.findUnique({
+      where: { id: caseId },
+    });
+
+    if (!adminCase) {
+      throw new NotFoundException('Caso no existe');
+    }
+
+    if (adminCase.status !== AdminCaseStatus.PENDING) {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS',
+        message: 'Solo se pueden rechazar solicitudes pendientes',
+      });
+    }
+
+    const rejected = await this.prisma.adminCase.update({
+      where: { id: caseId },
+      data: {
+        status: AdminCaseStatus.REJECTED,
+        rejectedBy: adminId,
+        rejectedAt: new Date(),
+        rejectionReason: reason,
       },
     });
+
+    await this.audit.log({
+      entityType: "ADMIN_CASE",
+      entityId: caseId,
+      action: "REJECT",
+      performedBy: adminId,
+      metadata: { reason },
+    });
+
+    return rejected;
   }
 }

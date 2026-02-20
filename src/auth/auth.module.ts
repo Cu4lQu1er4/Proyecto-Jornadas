@@ -13,7 +13,6 @@ import { DeactivateEmployee } from "./application/deactivate-employee";
 import { WorkModule } from "src/work/work.module";
 import { AuthService } from "./application/auth.service";
 
-console.log('JWT_SECRET:', process.env.JWT_SECRET);
 
 @Module({
   imports: [

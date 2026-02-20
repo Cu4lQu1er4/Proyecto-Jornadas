@@ -8,6 +8,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { PERIOD_REPO, PeriodRepoDb } from './infrastructure/period.repo.db';
 import { AttendanceSummaryService } from './application/attendance-summary.service';
 import { AttendanceSummaryController } from './infrastructure/attendance-summary.controller';
+import { EmployeeScheduleService } from './application/employee-schedule.service';
+import { ScheduleTemplateService } from './application/schedule-template.service';
+import { ScheduleTemplateController } from './infrastructure/schedule-template.controller';
+import { EmployeeScheduleController } from './infrastructure/employee-schedule.controller';
 
 @Module({
   imports: [
@@ -16,6 +20,8 @@ import { AttendanceSummaryController } from './infrastructure/attendance-summary
   controllers: [
     WorkController,
     AttendanceSummaryController,
+    ScheduleTemplateController,
+    EmployeeScheduleController,
   ],
   providers: [
     {
@@ -28,7 +34,9 @@ import { AttendanceSummaryController } from './infrastructure/attendance-summary
     },
     WorkService,
     PrismaService,
-    AttendanceSummaryService
+    AttendanceSummaryService,
+    EmployeeScheduleService,
+    ScheduleTemplateService,
   ],
   exports: [
     WORKDAY_REPO,

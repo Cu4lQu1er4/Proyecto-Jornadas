@@ -19,6 +19,8 @@ import { Roles } from "src/auth/roles.decorator";
 import { Role } from "src/auth/roles.enum";
 import { RolesGuard } from "src/auth/roles.guard";
 import { AttendanceSummaryService } from "./application/attendance-summary.service";
+import { CreateEmployeeDto } from "./application/create-employee.dto";
+import { CompleteProfileDto } from "./application/complete-profile.dto";
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("work")
@@ -222,5 +224,31 @@ export class WorkController {
       employeeId,
       targerDate,
     );
+  }
+
+  @Post("admin/employees")
+  @Roles(Role.ADMIN)
+  createEmployee(
+    @Body() dto: CreateEmployeeDto,
+    @Req() req: any,
+  ) {
+    return this.service.createEmployee(dto, req.user.userId);
+  }
+
+  @Patch("complete-profile")
+  completeProfile(
+    @Body() dto: CompleteProfileDto,
+    @Req() req: any,
+  ) {
+    return this.service.completeProfile(req.user.userId, dto);
+  }
+
+  @Patch("users/:id/active")
+  @Roles(Role.ADMIN)
+  async toggleActive(
+    @Param('id') id: string,
+    @Body('active') active: boolean,
+  ) {
+    return this.service.toggleActive(id, active);
   }
 }

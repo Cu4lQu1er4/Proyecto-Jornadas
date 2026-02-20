@@ -25,6 +25,8 @@ import { ListEmployees } from "./application/list.employees";
 import { DeactivateEmployee } from "./application/deactivate-employee";
 import { PrismaService } from "src/prisma/prisma.service";
 import * as bcrypt from "bcrypt";
+import { ChangePasswordDto, ChangePinDto, UpdateProfileDto } from "./dto/uodate-profile.dto";
+import { AuthService } from "./application/auth.service";
 
 @Controller('auth')
 export class AuthController {
@@ -34,6 +36,7 @@ export class AuthController {
     private readonly listEmployees: ListEmployees,
     private readonly deactivateEmployee: DeactivateEmployee,
     private readonly prisma: PrismaService,
+    private readonly authService: AuthService,
   ) {}
 
   @Public()
@@ -225,85 +228,47 @@ export class AuthController {
     return { success: true };
   }
 
+  @Patch("profile")
   @UseGuards(JwtAuthGuard)
-  @Post("complete-profile")
-  async completeProfile(
-    @Req() req: any,
-    @Body() body: {
-      firstName: string;
-      lastName: string;
-      phone?: string;
-      email?: string;
-      pin: string;
-    }
-  ) {
-    const userId = req.user.userId;
-
-    if (!body.firstName?.trim()) {
-      throw new BadRequestException("Nombre es obligatorio");
-    }
-
-    if (!body.lastName?.trim()) {
-      throw new BadRequestException("Apellido es obligatorio");
-    }
-
-    if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
-      throw new BadRequestException("Telefono invalido");
-    }
-
-    if (!/^\d{4}$/.test(body.pin)) {
-      throw new BadRequestException("PIN invalido");
-    }
-
-    if (["0000", "1111", "1234", "2222", "3333"].includes(body.pin)) {
-      throw new BadRequestException("PIN demasiado inseguro");
-    }
-
-    const hash = await bcrypt.hash(body.pin, 10);
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        firstName: body.firstName.trim(),
-        lastName: body.lastName.trim(),
-        phone: body.phone ? body.phone.trim() : null,
-        email: body.email ? body.email.trim() : null,
-        pinHash: hash,
-        failedPinAttempts: 0,
-        pinLockedUntil: null,
-      },
-    });
-
-    return { success: true };
+  updateProfile(@Req() req: any, @Body() dto: UpdateProfileDto) {
+    return this.authService.updateProfile(req.user.userId, dto);
   }
 
+  @Patch("change-password")
   @UseGuards(JwtAuthGuard)
-  @Post("change-pin")
-  async changePin(
+  changePassword(@Req() req: any, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(req.user.userId, dto);
+  }
+
+  @Patch("change-pin")
+  @UseGuards(JwtAuthGuard) 
+  changePin(@Req() req: any, @Body() dto: ChangePinDto){
+    return this.authService.changePin(req.user.userId, dto);
+  }
+
+  @Patch("admin/:id/reset-password")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async adminResetPassword(
+    @Param("id") id: string,
     @Req() req: any,
-    @Body() body: { newPin: string }
   ) {
-    const userId = req.user.userId;
+    return this.authService.adminResetPassword(
+      id,
+      req.user.userId,
+    );
+  }
 
-    if (!/^\d{4}$/.test(body.newPin)) {
-      throw new BadRequestException("PIN invalido");
-    }
-
-    if (["0000", "1111", "1234"].includes(body.newPin)) {
-      throw new BadRequestException("PIN demasiado inseguro");
-    }
-
-    const hash = await bcrypt.hash(body.newPin, 10);
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        pinHash: hash,
-        failedPinAttempts: 0,
-        pinLockedUntil: null,
-      },
-    });
-
-    return { success: true };
+  @Patch("admin/:id/reset-pin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async adminResetPin(
+    @Param("id") id: string,
+    @Req() req: any,
+  ) {
+    return this.authService.adminResetPin(
+      id,
+      req.user.userId,
+    );
   }
 }

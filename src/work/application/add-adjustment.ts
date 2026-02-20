@@ -16,7 +16,6 @@ export class AddWorkdayAdjustment {
   constructor(
     private readonly historyRepo: WorkdayHistoryReader,
     private readonly adjustmentRepo: WorkdayAdjustmentRepo,
-    // private readonly periodRepo: PeriodRepo,
   ) {}
 
   async execute(cmd: AddAdjustmentCmd): Promise<void> {

@@ -92,41 +92,34 @@ export class Workday {
     const day = this.start.getDay();
     const schedule = rules.schedule[day];
 
-    if(!schedule) {
-      return 0;
-    }
+    if (!schedule) return 0;
 
     const start = this.buildBreakDate(this.start, schedule.start);
     const end = this.buildBreakDate(this.start, schedule.end);
 
-    return this.minutesBetween(start, end);
-  }
+    const total = this.minutesBetween(start, end);
 
-  isLateArrival(rules: WorkdayRules): boolean {
-    const day = this.start.getDay();
-    const schedule = rules.schedule[day];
-
-    if (!schedule) return false;
-
-    const expectedStart = this.buildBreakDate(
-      this.start,
-      schedule.start
+    const deducted = rules.breaks.reduce(
+      (sum, br) => sum + this.breakDuration(br),
+      0
     );
 
-    return this.start > expectedStart;
+    return Math.max(0, total - deducted);
   }
 
-  isEarlyLeave(rules: WorkdayRules): boolean {
-    const day = this.start.getDay();
-    const schedule = rules.schedule[day];
+  expectedMinutesFromSchedule(
+  days: {
+    weekday: number;
+    startMinute: number;
+    endMinute: number;
+  }[],
+): number {
+  const weekday = this.start.getDay();
 
-    if (!schedule) return false;
+  const dayConfig = days.find(d => d.weekday === weekday);
 
-    const expectedEnd = this.buildBreakDate(
-      this.start,
-      schedule.end
-    );
+  if (!dayConfig) return 0;
 
-    return this.end < expectedEnd;
-  }
+  return dayConfig.endMinute - dayConfig.startMinute;
+}
 }

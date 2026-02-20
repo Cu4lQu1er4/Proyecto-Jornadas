@@ -97,21 +97,27 @@ enum UserRole {
 }
 
 model User {
-  id                String    @id @default(uuid())
-  document          String    @unique
-  passwordHash      String
-  role              String
-  active            Boolean   @default(true)
-  pinHash           String?
-  failedPinAttempts Int       @default(0)
-  pinLockedUntil    DateTime?
+  id                 String    @id @default(uuid())
+  document           String    @unique
+  passwordHash       String
+  role               String
+  active             Boolean   @default(true)
+  pinHash            String?
+  failedPinAttempts  Int       @default(0)
+  pinLockedUntil     DateTime?
 
-  firstName         String?
-  lastName          String?
-  phone             String?
-  email             String?
+  firstName          String?
+  lastName           String?
+  phone              String?
+  email              String?
+
+  mustChangePin      Boolean   @default(false)
+  mustChangePassword Boolean   @default(true)
+  profileCompleted   Boolean   @default(false)
   
-  createdAt        DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+
+  scheduleAssignments EmployeeScheduleAssignment[]
 
   @@map("users")
 }
@@ -124,25 +130,29 @@ enum AdminCaseType {
 }
 
 enum AdminCaseStatus {
-  DRAFT
+  PENDING
   APPLIED
+  REJECTED
   CANCELLED
 }
 
 model AdminCase {
-  id           String          @id @default(uuid())
-  employeeId   String
-  type         AdminCaseType
-  status       AdminCaseStatus @default(DRAFT)
-  reasonCode   String?
-  notes        String?
-  createdBy    String
-  createdAt    DateTime @default(now())
-  appliedBy    String?
-  appliedAt    DateTime?
-  cancelledBy  String?
-  cancelledAt  DateTime?
-  cancelReason String?
+  id             String          @id @default(uuid())
+  employeeId     String
+  type           AdminCaseType
+  status         AdminCaseStatus @default(PENDING)
+  reasonCode     String?
+  notes          String?
+  createdBy      String
+  createdAt      DateTime        @default(now())
+  appliedBy      String?
+  appliedAt      DateTime?
+  cancelledBy    String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  rejectedAt     DateTime?
+  rejectedBy     String?
+  rejectedReason String?
 
   scopes       AdminCaseScope[]
 
@@ -177,4 +187,38 @@ model AuditEvent {
 
   @@index([entityType, entityId])
   @@index([performedBy])
+}
+
+model ScheduleTemplate {
+  id           String    @id @default(uuid())
+  name         String    
+  createdAt    DateTime  @default(now())
+
+  days         ScheduleTemplateDay[]
+  assignments  EmployeeScheduleAssignment[] 
+}
+
+model ScheduleTemplateDay {
+  id                 String  @id @default(uuid())
+  scheduleTemplateId String
+  weekday            Int
+  startMinute        Int
+  endMinute          Int
+
+  template ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
+
+  @@unique([scheduleTemplateId, weekday])
+}
+
+model EmployeeScheduleAssignment {
+  id                  String     @id @default(uuid())
+  employeeId          String
+  scheduleTemplateId  String
+  effectiveFrom       DateTime
+  effectiveTo         DateTime?
+
+  employee User @relation(fields: [employeeId], references: [id])
+  template ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
+
+  @@index([employeeId, effectiveFrom])
 }
