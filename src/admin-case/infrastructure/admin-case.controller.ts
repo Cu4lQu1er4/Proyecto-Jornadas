@@ -43,4 +43,34 @@ export class AdminCaseController {
 
     return this.service.reject(id, reason, req.user.userId);
   }
+
+  @Patch(":id/cancel")
+  async cancel(
+    @Param("id") id: string,
+    @Body("reason") reason: string,
+    @Req() req: any,
+  ) {
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException("Debe indicar un motivo de cancelacion");
+    }
+
+    return this.service.cancel(id, reason, req.user.userId);
+  }
+
+  @Get()
+  async list(
+    @Query("employeeId") employeeId: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    if (!employeeId) {
+      throw new BadRequestException("employeeId es requerido")
+    }
+
+    return this.service.listByEmployee(
+      employeeId,
+      Number(page) || 1,
+      Number(limit) || 10,
+    );
+  }
 }

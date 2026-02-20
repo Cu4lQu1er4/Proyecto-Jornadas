@@ -94,34 +94,27 @@ export class AdminCaseService {
     return created;
   }
 
-  async apply(caseId: string, adminId: string) {
+  async approve(caseId: string, adminId: string) {
     const adminCase = await this.prisma.adminCase.findUnique({
       where: { id: caseId },
       include: { scopes: true },
     });
 
     if (!adminCase) {
-      throw new NotFoundException('Caso no existe');
-    }
-
-    if (adminCase.status === AdminCaseStatus.APPLIED) {
-      throw new BadRequestException({
-        code: 'CASE_ALREADY_APPLIED',
-        message: 'El caso ya fue aplicado',
-      });
+      throw new NotFoundException("Caso no existe");
     }
 
     if (adminCase.status !== AdminCaseStatus.PENDING) {
       throw new BadRequestException({
-        code: 'INVALID_CASE_STATUS',
-        message: `No se puede aplicar un caso en estado ${adminCase.status}`,
+        code: "INVALID_CASE_STATUS",
+        message: `Solo se pueden aprobar solicitudes pendientes`,
       });
     }
 
     if (!adminCase.scopes || adminCase.scopes.length === 0) {
       throw new BadRequestException({
-        code: 'CASE_WITHOUT_SCOPES',
-        message: 'El caso no tiene alcances definidos',
+        code: "CASE_WITHOUT_SCOPES",
+        message: "El caso no tiene alcances definidos",
       });
     }
 
@@ -135,7 +128,7 @@ export class AdminCaseService {
     });
 
     for (const scope of adminCase.scopes) {
-      for(const otherCase of otherCases) {
+      for (const otherCase of otherCases) {
         for (const otherScope of otherCase.scopes) {
           if (scope.date.getTime() !== otherScope.date.getTime()) continue;
 
@@ -148,8 +141,8 @@ export class AdminCaseService {
             )
           ) {
             throw new BadRequestException({
-              code: 'ADMIN_CASE_OVERLAP',
-              message: 'El caso se solapa con otro caso administrativo aplicado',
+              code: "ADMIN_CASE_OVERLAP",
+              message: "La solicitud se solapa con otro caso aplicado",
               date: scope.date.toISOString().slice(0, 10),
               conflictingCaseId: otherCase.id,
             });
@@ -158,7 +151,7 @@ export class AdminCaseService {
       }
     }
 
-    const applied = await this.prisma.adminCase.update({
+    const approved = await this.prisma.adminCase.update({
       where: { id: caseId },
       data: {
         status: AdminCaseStatus.APPLIED,
@@ -167,6 +160,16 @@ export class AdminCaseService {
       },
       include: { scopes: true },
     });
+
+    await this.audit.log({
+      entityType: "ADMIN_CASE",
+      entityId: caseId,
+      action: "APPROVE",
+      performedBy: adminId,
+    });
+
+    return approved;
+  }
 
     await this.audit.log({
       entityType: "ADMIN_CASE",
@@ -331,5 +334,32 @@ export class AdminCaseService {
     });
 
     return rejected;
+  }
+
+  async cancelByEmployee(caseId: string, employeeId: string) {
+    const adminCase = await this.prisma.adminCase.findUnique({
+      where: { id: caseId },
+    });
+
+    if (!adminCase) {
+      throw new NotFoundException("Caso no existe");
+    }
+
+    if (adminCase.employeeId !== employeeId) {
+      throw new BadRequestException("No autorizado");
+    }
+
+    if (adminCase.status !== AdminCaseStatus.PENDING) {
+      throw new BadRequestException(
+        "Solo puedes cancelar solicitudes pendientes"
+      );
+    }
+
+    return this.prisma.adminCase.update({
+      where: { id: caseId },
+      data: {
+        status: AdminCaseStatus.CANCELLED,
+      },
+    });
   }
 }
