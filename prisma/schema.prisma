@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -22,104 +16,174 @@ model WorkdayOpen {
 }
 
 model WorkdayHistory {
-  id         String   @id @default(uuid())
-  employeeId String
-  startTime  DateTime
-  endTime    DateTime?
-
+  id              String              @id @default(uuid())
+  employeeId      String
+  startTime       DateTime
+  endTime         DateTime?
   workedMinutes   Int
   expectedMinutes Int
   deltaMinutes    Int
-
-  lateArrival Boolean
-  earlyLeave  Boolean
-
-  createdAt DateTime @default(now())
-
-  periodId String
-  period   WorkPeriod @relation(fields: [periodId], references: [id])
-
-  adjustments WorkdayAdjustment[]
+  createdAt       DateTime            @default(now())
+  earlyLeave      Boolean
+  lateArrival     Boolean
+  periodId        String
+  adjustments     WorkdayAdjustment[]
+  period          WorkPeriod          @relation(fields: [periodId], references: [id])
 
   @@map("workday_history")
 }
 
 model WorkdayRules {
-  id          String   @id @default(uuid())
+  id          String         @id @default(uuid())
   baseMinutes Int
-  createdAt   DateTime @default(now())
-
-  breaks WorkdayBreak[]
+  createdAt   DateTime       @default(now())
+  breaks      WorkdayBreak[]
 }
 
 model WorkdayBreak {
-  id      String @id @default(uuid())
+  id      String       @id @default(uuid())
   rulesId String
   start   String
   end     String
-
-  rules WorkdayRules @relation(fields: [rulesId], references: [id])
+  rules   WorkdayRules @relation(fields: [rulesId], references: [id])
 }
 
 model WorkdayAdjustment {
-  id         String   @id @default(uuid())
+  id         String         @id @default(uuid())
   historyId  String
   type       String
   minutes    Int
   reason     String
   approvedBy String
-  createdAt  DateTime @default(now())
-
-  history WorkdayHistory @relation(fields: [historyId], references: [id])
+  createdAt  DateTime       @default(now())
+  history    WorkdayHistory @relation(fields: [historyId], references: [id])
 
   @@map("workday_adjustment")
 }
 
 model WorkPeriod {
-  id        String   @id @default(uuid())
+  id        String           @id @default(uuid())
   year      Int
   month     Int
   half      Int
   startDate DateTime
   endDate   DateTime
-
-  closedAt DateTime?
-  closedBy String?
-
+  closedAt  DateTime?
+  closedBy  String?
   histories WorkdayHistory[]
 
   @@unique([year, month, half])
 }
 
-enum UserRole {
-  EMPLOYEE
-  ADMIN
-}
-
 model User {
-  id                 String    @id @default(uuid())
-  document           String    @unique
-  passwordHash       String
-  role               String
-  active             Boolean   @default(true)
-  pinHash            String?
-  failedPinAttempts  Int       @default(0)
-  pinLockedUntil     DateTime?
-
-  firstName          String?
-  lastName           String?
-  phone              String?
-  email              String?
-
-  mustChangePin      Boolean   @default(false)
-  mustChangePassword Boolean   @default(true)
-  profileCompleted   Boolean   @default(false)
-  
-  createdAt          DateTime  @default(now())
-
+  id                  String                       @id @default(uuid())
+  active              Boolean                      @default(true)
+  createdAt           DateTime                     @default(now())
+  passwordHash        String
+  role                String
+  document            String                       @unique
+  pinHash             String?
+  email               String?
+  firstName           String?
+  lastName            String?
+  phone               String?
+  pinLockedUntil      DateTime?
+  failedPinAttempts   Int                          @default(0)
+  mustChangePassword  Boolean                      @default(true)
+  profileCompleted    Boolean                      @default(false)
+  mustChangePin       Boolean                      @default(false)
   scheduleAssignments EmployeeScheduleAssignment[]
 
   @@map("users")
+}
+
+model AdminCase {
+  id             String           @id @default(uuid())
+  employeeId     String
+  type           AdminCaseType
+  status         AdminCaseStatus  @default(PENDING)
+  reasonCode     String?
+  notes          String?
+  createdBy      String
+  createdAt      DateTime         @default(now())
+  appliedBy      String?
+  cancelledBy    String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  appliedAt      DateTime?
+  rejectedAt     DateTime?
+  rejectedBy     String?
+  rejectedReason String?
+  scopes         AdminCaseScope[]
+  attachments    AdminCaseAttachment[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@map("admin_case")
+}
+
+model AdminCaseScope {
+  id               String    @id @default(uuid())
+  adminCaseId      String
+  date             DateTime
+  startMinute      Int?
+  endMinute        Int?
+  workdayHistoryId String?
+  createdAt        DateTime  @default(now())
+  adminCase        AdminCase @relation(fields: [adminCaseId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([adminCaseId, date])
+  @@map("admin_case_scope")
+}
+
+model AuditEvent {
+  id          String   @id @default(uuid())
+  entityType  String
+  entityId    String
+  action      String
+  performedBy String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([performedBy])
+}
+
+model ScheduleTemplate {
+  id          String                       @id @default(uuid())
+  name        String
+  createdAt   DateTime                     @default(now())
+  assignments EmployeeScheduleAssignment[]
+  days        ScheduleTemplateDay[]
+}
+
+model ScheduleTemplateDay {
+  id                 String           @id @default(uuid())
+  scheduleTemplateId String
+  weekday            Int
+  startMinute        Int
+  endMinute          Int
+  template           ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
+
+  @@unique([scheduleTemplateId, weekday])
+}
+
+model EmployeeScheduleAssignment {
+  id                 String           @id @default(uuid())
+  employeeId         String
+  scheduleTemplateId String
+  effectiveFrom      DateTime
+  effectiveTo        DateTime?
+  employee           User             @relation(fields: [employeeId], references: [id])
+  template           ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
+
+  @@index([employeeId, effectiveFrom])
+}
+
+enum UserRole {
+  EMPLOYEE
+  ADMIN
 }
 
 enum AdminCaseType {
@@ -136,89 +200,18 @@ enum AdminCaseStatus {
   CANCELLED
 }
 
-model AdminCase {
-  id             String          @id @default(uuid())
-  employeeId     String
-  type           AdminCaseType
-  status         AdminCaseStatus @default(PENDING)
-  reasonCode     String?
-  notes          String?
-  createdBy      String
-  createdAt      DateTime        @default(now())
-  appliedBy      String?
-  appliedAt      DateTime?
-  cancelledBy    String?
-  cancelledAt    DateTime?
-  cancelReason   String?
-  rejectedAt     DateTime?
-  rejectedBy     String?
-  rejectedReason String?
-
-  scopes       AdminCaseScope[]
-
-  @@index([employeeId])
-  @@index([status])
-  @@map("admin_case")
-}
-
-model AdminCaseScope {
-  id               String    @id @default(uuid())
-  adminCaseId      String
-  adminCase        AdminCase @relation(fields: [adminCaseId], references: [id], onDelete: Cascade)
-  date             DateTime
-  startMinute      Int?
-  endMinute        Int?
-  workdayHistoryId String?
-  createdAt        DateTime  @default(now())
-
-  @@index([date])
-  @@index([adminCaseId, date])
-  @@map("admin_case_scope")
-}
-
-model AuditEvent {
-  id           String  @id @default(uuid())
-  entityType   String
-  entityId     String
-  action       String
-  performedBy  String
-  metadata     Json?
-  createdAt    DateTime @default(now())
-
-  @@index([entityType, entityId])
-  @@index([performedBy])
-}
-
-model ScheduleTemplate {
+model AdminCaseAttachment {
   id           String    @id @default(uuid())
-  name         String    
+  adminCaseId  String
+  adminCase    AdminCase @relation(fields: [adminCaseId], references: [id], onDelete: Cascade)
+  url          String
+  publicId     String
+  resourceType String
+  format       String?
+  bytes        Int?
+  originalName String?
   createdAt    DateTime  @default(now())
 
-  days         ScheduleTemplateDay[]
-  assignments  EmployeeScheduleAssignment[] 
-}
-
-model ScheduleTemplateDay {
-  id                 String  @id @default(uuid())
-  scheduleTemplateId String
-  weekday            Int
-  startMinute        Int
-  endMinute          Int
-
-  template ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
-
-  @@unique([scheduleTemplateId, weekday])
-}
-
-model EmployeeScheduleAssignment {
-  id                  String     @id @default(uuid())
-  employeeId          String
-  scheduleTemplateId  String
-  effectiveFrom       DateTime
-  effectiveTo         DateTime?
-
-  employee User @relation(fields: [employeeId], references: [id])
-  template ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
-
-  @@index([employeeId, effectiveFrom])
+  @@index([adminCaseId])
+  @@map("admin_case_attachment")
 }

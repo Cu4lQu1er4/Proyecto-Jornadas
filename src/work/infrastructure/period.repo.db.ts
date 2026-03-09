@@ -102,7 +102,7 @@ export class PeriodRepoDb implements PeriodRepo {
     const count = await this.prisma.workdayHistory.count({
       where: {
         periodId,
-        endTime: { equals: undefined }
+        endTime: null
       },
     });
 

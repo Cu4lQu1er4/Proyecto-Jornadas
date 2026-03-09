@@ -1,9 +1,15 @@
 import { BadRequestException } from "@nestjs/common";
 
 export function normalizeDay(date: string | Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  if (typeof date === "string") {
+    return new Date(`${date}T00:00:00-05:00`);
+  }
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+
+  return new Date(`${y}-${m}-${d}T00:00:00-05:00`);
 }
 
 export function validateScopeMinutes(

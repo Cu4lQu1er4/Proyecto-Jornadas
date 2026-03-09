@@ -9,6 +9,8 @@ import {
   Patch,
   Param,
   BadRequestException,
+  UseInterceptors,
+  UploadedFiles,
 } from "@nestjs/common";
 import { AdminCaseService } from "../application/admin-case.service";
 import { CreateAdminCaseDto } from "../application/create-admin-case.dto";
@@ -16,6 +18,8 @@ import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { RolesGuard } from "src/auth/roles.guard";
 import { Roles } from "src/auth/roles.decorator";
 import { Role } from "src/auth/roles.enum";
+import { AdminCaseStatus } from "@prisma/client";
+import { FilesInterceptor } from "@nestjs/platform-express";
 
 @Controller("employee/admin-cases")
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,13 +30,28 @@ export class EmployeeAdminCaseController {
   ) {}
 
   @Post()
+  @UseInterceptors(FilesInterceptor("files", 5))
   async create(
-    @Body() dto: CreateAdminCaseDto,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: any,
     @Req() req: any,
   ) {
-    dto.employeeId = req.user.userId;
+    let scopesParsed: any[] = [];
+    try {
+      scopesParsed = typeof body.scopes === "string" ? JSON.parse(body.scopes) : body.scopes;
+    } catch {
+      throw new BadRequestException("scopes invalido (debe ser JSON)");
+    }
 
-    return this.service.createByEmployee(dto, req.user.userId);
+    const dto: CreateAdminCaseDto = {
+      employeeId: req.user.userId,
+      type: body.type,
+      notes: body.notes || null,
+      reasonCode: body.reasonCode || null,
+      scopes: scopesParsed,
+    };
+
+    return this.service.createByEmployeeWithEvidence(dto, req.user.userId, files || []);
   }
 
   @Get()
@@ -40,11 +59,13 @@ export class EmployeeAdminCaseController {
     @Req() req: any,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
+    @Query("status") status?: AdminCaseStatus,
   ) {
     return this.service.listByEmployee(
       req.user.userId,
       Number(page) || 1,
       Number(limit) || 10,
+      status,
     );
   }
 

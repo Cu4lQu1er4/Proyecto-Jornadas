@@ -41,7 +41,6 @@ export class WorkService {
     const scheduleService = new EmployeeScheduleService(prisma);
     this.endUC = new EndWorkday(
       this.repo,
-      this.historyRepo,
       workdayRules,
       this.periodRepo,
       scheduleService,
@@ -53,10 +52,13 @@ export class WorkService {
       this.adjustmentRepo,
     );
     this.listPeriodUC = new ListPeriods(this.periodRepo);
-    this.closePeriodUC = new ClosePeriod(this.periodRepo);
+    this.closePeriodUC = new ClosePeriod(
+      this.periodRepo,
+      this.prisma,
+    );
   }
 
-  async start(employeeId: string): Promise<void> {
+  async start(employeeId: string, now?: Date): Promise<void> {
     await this.startUC.execute({
       employeeId,
       now: new Date(),
@@ -139,20 +141,12 @@ export class WorkService {
   }
 
   async listEmployeePeriods(employeeId: string) {
-    const histories = await this.prisma.workdayHistory.findMany({
-      where: { employeeId },
-      select: { periodId: true },
-      distinct: ['periodId'],
-    });
-
-    if (histories.length === 0) {
-      return [];
-    }
-
     const periods = await this.prisma.workPeriod.findMany({
       where: {
-        id: {
-          in: histories.map(h => h.periodId),
+        histories: {
+          some: {
+            employeeId,
+          },
         },
       },
       orderBy: [
@@ -160,9 +154,44 @@ export class WorkService {
         { month: 'desc' },
         { half: 'desc' },
       ],
+      include: {
+        histories: {
+          where: { employeeId },
+          select: {
+            workedMinutes: true,
+            expectedMinutes: true,
+            deltaMinutes: true,
+          },
+        },
+      },
     });
 
-    return periods;
+    return periods.map((p) => {
+      const totalWorked = p.histories.reduce(
+        (acc, w) => acc + w.workedMinutes,
+        0
+      );
+
+      const totalExpected = p.histories.reduce(
+        (acc, w) => acc + w.expectedMinutes,
+        0
+      );
+
+      const totalDelta = p.histories.reduce(
+        (acc, w) => acc + w.deltaMinutes,
+        0
+      );
+
+      return {
+        id: p.id,
+        startDate: p.startDate,
+        endDate: p.endDate,
+        closedAt: p.closedAt,
+        totalWorked,
+        totalExpected,
+        totalDelta,
+      };
+    });
   }
 
   async listEmployees() {

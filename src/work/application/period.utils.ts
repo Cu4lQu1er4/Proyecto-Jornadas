@@ -35,5 +35,7 @@ export function getExpectedCloseDate(
     return new Date(year, month, 15, 23, 59, 59);
   }
 
-  return new Date(year, month, 30, 23, 59, 59);
+  const lastDay = new Date(year, month + 1, 0).getDate();
+
+  return new Date(year, month, lastDay, 23, 59, 59);
 }

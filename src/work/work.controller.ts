@@ -251,4 +251,13 @@ export class WorkController {
   ) {
     return this.service.toggleActive(id, active);
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('admin/employees/:id/periods')
+  async employeePeriods(
+    @Param('id') employeeId: string,
+  ) {
+    return this.service.listEmployeePeriods(employeeId);
+  }
 }

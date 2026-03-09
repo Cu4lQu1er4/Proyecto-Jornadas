@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
 import { AdminCaseStatus, AdminCaseType } from "@prisma/client";
-import { workdayRules } from "../workday.rules";
+import { EmployeeScheduleService } from "./employee-schedule.service";
 
 export type AttendanceDaySummary = {
   date: string;
@@ -19,7 +19,9 @@ export type AttendanceDaySummary = {
     | "PARTIALLY_UNJUSTIFIED"
     | "UNJUSTIFIED_ABSENCE"
     | "INCAPACITY"
-    | "CONFLICT";
+    | "CONFLICT"
+    | "NON_OPERATIONAL_DAY";
+  isOpen: boolean;
 
   adminCases: {
     type: AdminCaseType;
@@ -94,71 +96,96 @@ async function logSystemDecisionOnce(
 @Injectable()
 export class AttendanceSummaryService {
   constructor(
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    private readonly scheduleService: EmployeeScheduleService,
   ) {}
 
-  private async isCompanyOperationalDay(day: Date): Promise<boolean> {
+  async getDay(employeeId: string, date: string): Promise<AttendanceDaySummary> {
+    const day = parseYmdLocal(date);
+
+    const scheduleDays = await this.scheduleService.getScheduleForEmployee(employeeId, day);
+
+    const weekday = day.getDay();
+    const dayConfig = scheduleDays?.find(d => d.weekday === weekday);
+
     const start = new Date(day);
     start.setHours(0, 0, 0, 0);
 
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    const anyWorkday = await this.prisma.workdayHistory.findFirst({
-      where: {
-        startTime: {
-          gte: start,
-          lt: end,
-        },
-      },
-      select: { id: true },
-    });
-
-    return !!anyWorkday;
-  }
-
-  async getDay(employeeId: string, date: string): Promise<AttendanceDaySummary> {
-    const day = parseYmdLocal(date);
-
-    const rules = await this.prisma.workdayRules.findFirst({
-      orderBy: { createdAt: "desc" },
-    });
-    const expectedMinutes = rules?.baseMinutes ?? 0;
-
-    const companyOperational = await this.isCompanyOperationalDay(day);
-    if (!companyOperational) {
+    if (!dayConfig) {
       return {
         date: day.toISOString().slice(0, 10),
         workedMinutes: 0,
-        expectedMinutes,
+        expectedMinutes: 0,
         deltaMinutes: 0,
         lateArrival: false,
         earlyLeave: false,
         justifiedMinutes: 0,
         unjustifiedMinutes: 0,
-        status: "JUSTIFIED",
+        status: "NON_OPERATIONAL_DAY",
         adminCases: [],
+        isOpen: false,
       };
     }
 
-    const start = new Date(day);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
+    const expectedMinutes = Math.max(0, dayConfig.endMinute - dayConfig.startMinute);
 
+    // ✅ 1) PRIMERO: ¿Hay jornada abierta HOY?
+    const open = await this.prisma.workdayOpen.findUnique({
+      where: { employeeId },
+      select: { startTime: true },
+    });
+
+    if (open?.startTime) {
+      const openStart = new Date(open.startTime);
+
+      if (openStart >= start && openStart < end) {
+        // OJO: lo ideal es usar "new Date()" directo (tiempo del servidor).
+        // Si necesitas Bogotá, asegúrate de guardar/normalizar con TZ a nivel DB/servidor.
+        const now = new Date();
+
+        const workedMinutesLive = Math.max(
+          0,
+          Math.floor((now.getTime() - openStart.getTime()) / 60000)
+        );
+
+        const deltaLive = workedMinutesLive - expectedMinutes;
+
+        const expectedStart = new Date(start);
+        expectedStart.setMinutes(dayConfig.startMinute); // start está en 00:00, esto funciona aunque sea > 59
+
+        const lateArrivalLive = openStart.getTime() > expectedStart.getTime();
+
+        return {
+          date: day.toISOString().slice(0, 10),
+          workedMinutes: workedMinutesLive,
+          expectedMinutes,
+          deltaMinutes: deltaLive,
+          lateArrival: lateArrivalLive,
+          earlyLeave: false, // no puedes saber earlyLeave mientras está abierta
+          justifiedMinutes: 0,
+          unjustifiedMinutes: Math.max(0, -deltaLive), // si va en negativo, lo muestra como “faltante” en vivo
+          status: deltaLive < 0 ? "PARTIALLY_UNJUSTIFIED" : "NORMAL",
+          adminCases: [],
+          isOpen: true,
+        };
+      }
+    }
+
+    // ✅ 2) SI NO HAY OPEN: buscar history del día
     const history = await this.prisma.workdayHistory.findFirst({
       where: {
         employeeId,
-        startTime: { 
-          gte: start,
-          lt: end
-         },
+        startTime: { gte: start, lt: end },
       },
     });
 
     const workedMinutes = history?.workedMinutes ?? 0;
     const deltaMinutes = history ? history.deltaMinutes : -expectedMinutes;
 
+    // ... aquí sigue tu lógica de scopes/justificaciones tal cual ...
     const scopes = await this.prisma.adminCaseScope.findMany({
       where: {
         date: day,
@@ -172,7 +199,7 @@ export class AttendanceSummaryService {
 
     const hasIncapacity = scopes.some((s) => s.adminCase.type === AdminCaseType.INCAPACITY);
     const hasFullDayIncapacity = scopes.some(
-      (s) => 
+      (s) =>
         s.adminCase.type === AdminCaseType.INCAPACITY &&
         s.startMinute === null &&
         s.endMinute === null,
@@ -197,7 +224,7 @@ export class AttendanceSummaryService {
     if (deltaMinutes < 0) {
       justifiedMinutes = Math.min(justifiedMinutes, absDelta);
     } else {
-      justifiedMinutes = 0
+      justifiedMinutes = 0;
     }
 
     const unjustifiedMinutes = deltaMinutes < 0 ? absDelta - justifiedMinutes : 0;
@@ -222,9 +249,8 @@ export class AttendanceSummaryService {
         date: day,
         status,
         reason: (() => {
-          if (!companyOperational) return "COMPANY_NON_OPERATIONAL_DAY";
-          if (status === "UNJUSTIFIED_ABSENCE") return "NO_WORK_NO_JUSTIFICATION"
-          if (status === "CONFLICT") return "AUTOMATIC_CONFLICT_DETECTED"
+          if (status === "UNJUSTIFIED_ABSENCE") return "NO_WORK_NO_JUSTIFICATION";
+          if (status === "CONFLICT") return "AUTOMATIC_CONFLICT_DETECTED";
           if (status === "INCAPACITY") return "FULL_DAY_INCAPACITY";
           if (status === "JUSTIFIED") return "JUSTIFIED_BY_ADMIN_CASE";
           return "AUTO_CLASSIFICATION";
@@ -248,6 +274,7 @@ export class AttendanceSummaryService {
         endMinute: s.endMinute,
         notes: s.adminCase.notes,
       })),
+      isOpen: false,
     };
   }
 
@@ -270,13 +297,27 @@ export class AttendanceSummaryService {
       current.setDate(current.getDate() + 1);
     }
 
+    const totalWorked = days.reduce((a, d) => a + d.workedMinutes, 0);
+    const totalExpected = days.reduce((a, d) => a + d.expectedMinutes, 0);
+    const totalJustified = days.reduce((a, d) => a + d.justifiedMinutes, 0);
+    const totalUnjustified = days.reduce((a, d) => a + d.unjustifiedMinutes, 0);
+
+    const rawDelta = totalWorked - totalExpected;
+    const netBalance = totalWorked + totalJustified - totalExpected;
+
+    const isIrregular = totalUnjustified > 0;
+
     return {
       period,
       days,
       totals: {
-        worked: days.reduce((a, d) => a + d.workedMinutes, 0),
-        justified: days.reduce((a, d) => a + d.justifiedMinutes, 0),
-        unjustified: days.reduce((a, d) => a + d.unjustifiedMinutes, 0),
+        worked: totalWorked,
+        expected: totalExpected,
+        justified: totalJustified,
+        unjustified: totalUnjustified,
+        rawDelta,
+        netBalance,
+        isIrregular,
       },
     };
   }

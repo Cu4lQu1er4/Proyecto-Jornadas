@@ -2,7 +2,7 @@ import { WorkdayRepo } from '../domain/repo';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { WorkdayOpenError } from '../domain/errors';
-import { WorkdayHistoryEntry } from '../domain/history.repo';
+import { WorkdayHistoryCreate } from '../domain/history.repo';
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
@@ -49,7 +49,7 @@ export class WorkdayRepoDb implements WorkdayRepo {
     return row.startTime;
   }
 
-  async close(employeeId: string): Promise<void> {
+  async close(employeeId: string, endTime: Date): Promise<void> {
     await this.prisma.workdayOpen.delete({
       where: { employeeId },
     });
@@ -67,7 +67,7 @@ export class WorkdayRepoDb implements WorkdayRepo {
 
   async closeWithHistory(
     employeeId: string,
-    history: WorkdayHistoryEntry,
+    history: WorkdayHistoryCreate,
     periodId: string,
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {

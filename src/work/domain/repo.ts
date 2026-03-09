@@ -1,3 +1,5 @@
+import { WorkdayHistoryCreate } from "./history.repo";
+
 export const WORKDAY_REPO = Symbol('WORKDAY_REPO');
 
 export interface WorkdayRepo {
@@ -15,5 +17,11 @@ export interface WorkdayRepo {
   close(
     employeeId: string,
     endTime: Date,
+  ): Promise<void>;
+
+  closeWithHistory(
+    employeeId: string,
+    history: WorkdayHistoryCreate,
+    periodId: string,
   ): Promise<void>;
 }

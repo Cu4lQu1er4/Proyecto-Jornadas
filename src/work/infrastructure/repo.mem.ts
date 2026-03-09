@@ -1,3 +1,4 @@
+import { WorkdayHistoryCreate } from "../domain/history.repo";
 import { WorkdayRepo } from "../domain/repo";
 
 type OpenWorkday = {
@@ -27,5 +28,17 @@ export class WorkdayRepoMem implements WorkdayRepo {
 
   async close(employeeId: string, endTime: Date): Promise<void> {
     this.openWorkdays.delete(employeeId);
+  }
+
+  async closeWithHistory(
+    employeeId: string, 
+    history: WorkdayHistoryCreate, 
+    periodId: string
+  ): Promise<void> {
+    if (!history.endTime) {
+      throw new Error("Invalid endTime");
+    }
+    
+    await this.close(employeeId, history.endTime);
   }
 }

@@ -1,35 +1,12 @@
 import type { PeriodRepo } from "../domain/period.repo";
-import { PeriodClosedError, PeriodHasOpenWorkdaysError } from "../domain/errors";
+import { 
+  PeriodClosedError,
+  PeriodHasOpenWorkdaysError,
+} from "../domain/errors";
 import { Injectable, Inject } from "@nestjs/common";
 import { PERIOD_REPO } from "../infrastructure/period.repo.db";
-
-function getNextPeriod(period: {
-  year: number;
-  month: number;
-  half: 1 | 2;
-}) {
-  if (period.half === 1) {
-    return {
-      year: period.year,
-      month: period.month,
-      half: 2 as const,
-    };
-  }
-
-  if (period.month === 11) {
-    return {
-      year: period.year + 1,
-      month: 0,
-      half: 1 as const,
-    };
-  }
-
-  return {
-    year: period.year,
-    month: period.month + 1,
-    half: 1 as const,
-  };
-}
+import { PrismaService } from "src/prisma/prisma.service";
+import { getNextPeriod } from "./period.utils";
 
 function getPeriodDates(
   year: number,
@@ -57,52 +34,85 @@ export interface ClosePeriodCmd {
 }
 
 @Injectable()
-export class ClosePeriod {
+  export class ClosePeriod {
   constructor(
     @Inject(PERIOD_REPO)
     private readonly periodRepo: PeriodRepo,
+    private readonly prisma: PrismaService,
   ) {}
 
   async execute(cmd: ClosePeriodCmd): Promise<void> {
-    const period = await this.periodRepo.findById(cmd.periodId);
+    await this.prisma.$transaction(async (tx) => {
+      const period = await tx.workPeriod.findUnique({
+        where: { id: cmd.periodId },
+      });
 
-    if (!period) {
-      throw new Error("Periodo no encontrado");
-    }
+      if (!period) {
+        throw new Error("Periodo no encontrado");
+      }
 
-    if (period.closedAt) {
-      throw new PeriodClosedError();
-    }
+      if (period.closedAt) {
+        throw new PeriodClosedError();
+      }
 
-    const hasOpen = await this.periodRepo.hasOpenWorkdays(period.id);
+      const now = new Date();
 
-    if (hasOpen) {
-      throw new PeriodHasOpenWorkdaysError([]);
-    }
+      if (now < period.endDate) {
+        throw new Error("PERIOD_NOT_FINISHED");
+      }
 
-    await this.periodRepo.close(period.id, {
-      closedAt: new Date(),
-      closedBy: cmd.closedBy,
-    });
+      const openWorkday = await tx.workdayOpen.findFirst({
+        where: {
+          startTime: {
+            gte: period.startDate,
+            lte: period.endDate,
+          },
+        },
+      });
 
-    const next = getNextPeriod({
-      year: period.year,
-      month: period.month,
-      half: period.half,
-    });
+      if (openWorkday) {
+        throw new PeriodHasOpenWorkdaysError([]);
+      }
 
-    const dates = getPeriodDates(
-      next.year,
-      next.month,
-      next.half
-    );
+      await tx.workPeriod.update({
+        where: { id: period.id },
+        data: {
+          closedAt: now,
+          closedBy: cmd.closedBy,
+        },
+      });
 
-    await this.periodRepo.findOrCreate({
-      year: next.year,
-      month: next.month,
-      half: next.half,
-      startDate: dates.startDate,
-      endDate: dates.endDate,
+      const next = getNextPeriod({
+        year: period.year,
+        month: period.month,
+        half: period.half as 1 | 2,
+      });
+
+      const dates = getPeriodDates(
+        next.year,
+        next.month,
+        next.half
+      );
+
+      await tx.workPeriod.upsert({
+        where: {
+          year_month_half: {
+            year: next.year,
+            month: next.month,
+            half: next.half,
+          },
+        },
+        update: {},
+        create: {
+          year: next.year,
+          month: next.month,
+          half: next.half,
+          startDate: dates.startDate,
+          endDate: dates.endDate,
+          closedAt: null,
+          closedBy: null,
+        },
+      });
     });
   }
 }

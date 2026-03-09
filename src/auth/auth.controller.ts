@@ -65,6 +65,8 @@ export class AuthController {
         httpOnly: true,
         sameSite: 'lax',
         secure: false,
+        domain: 'localhost',
+        path: '/',
         maxAge: 1000 * 60 * 60 * 10,
       });
 

@@ -13,6 +13,8 @@ import {
   validateScopeMinutes,
 } from "../domain/admin-case.rules";
 import { AuditService } from "src/audit/audit.service";
+import { CloudinaryService } from "src/files/cloudinary.service";
+import { Prisma } from "@prisma/client";
 
 async function assertNoClosedPeriods(
   prisma: PrismaService,
@@ -39,6 +41,7 @@ export class AdminCaseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly cloudinary: CloudinaryService,
   ) {}
 
   async createByEmployee(dto: CreateAdminCaseDto, employeeId: string) {
@@ -97,7 +100,7 @@ export class AdminCaseService {
   async approve(caseId: string, adminId: string) {
     const adminCase = await this.prisma.adminCase.findUnique({
       where: { id: caseId },
-      include: { scopes: true },
+      include: { scopes: true, attachments: true },
     });
 
     if (!adminCase) {
@@ -107,7 +110,7 @@ export class AdminCaseService {
     if (adminCase.status !== AdminCaseStatus.PENDING) {
       throw new BadRequestException({
         code: "INVALID_CASE_STATUS",
-        message: `Solo se pueden aprobar solicitudes pendientes`,
+        message: "Solo se pueden aprobar solicitudes pendientes",
       });
     }
 
@@ -171,43 +174,34 @@ export class AdminCaseService {
     return approved;
   }
 
-    await this.audit.log({
-      entityType: "ADMIN_CASE",
-      entityId: caseId,
-      action: "APPLY",
-      performedBy: adminId,
-      metadata: {
-        scopes: applied.scopes.map(s => ({
-          date: s.date,
-          startMinute: s.startMinute,
-          endMinute: s.endMinute,
-        })),
-      },
-    });
-
-    return applied;
-  }
-
   async cancel(caseId: string, reason: string, adminId: string) {
     const adminCase = await this.prisma.adminCase.findUnique({
       where: { id: caseId },
-      include: { scopes: true },
+      include: { scopes: true, attachments: true },
     });
 
     if (!adminCase) {
-      throw new NotFoundException('Caso no existe');
+      throw new NotFoundException("Caso no existe");
     }
 
     if (adminCase.status === AdminCaseStatus.CANCELLED) {
       return adminCase;
     }
 
-    if (adminCase.status !== AdminCaseStatus.APPLIED) {
-      throw new ConflictException('CASE_NOT_APPLIED');
+    if (
+      adminCase.status !== AdminCaseStatus.APPLIED &&
+      adminCase.status !== AdminCaseStatus.PENDING
+    ) {
+      throw new ConflictException({
+        code: "INVALID_CASE_STATUS",
+        message: `No se puede cancelar un caso en estado ${adminCase.status}`,
+      });
     }
 
-    const scopeDates = adminCase.scopes.map(s => s.date);
-    await assertNoClosedPeriods(this.prisma, scopeDates);
+    if (adminCase.status === AdminCaseStatus.APPLIED) {
+      const scopeDates = adminCase.scopes.map((s) => s.date);
+      await assertNoClosedPeriods(this.prisma, scopeDates);
+    }
 
     const cancelled = await this.prisma.adminCase.update({
       where: { id: caseId },
@@ -226,16 +220,21 @@ export class AdminCaseService {
       action: "CANCEL",
       performedBy: adminId,
       metadata: {
+        previousStatus: adminCase.status,
         reason,
       },
     });
 
-    return cancelled
+    return cancelled;
   }
 
   async isOperationalDay(employeeId: string, date: Date): Promise<boolean> {
     const day = new Date(date);
     day.setHours(0, 0, 0, 0);
+
+    console.log("Input date:", date);
+    console.log("Normalized day:", day);
+    console.log("Weekday getDay():", day.getDay());
 
     const assignment = await this.prisma.employeeScheduleAssignment.findFirst({
       where: {
@@ -255,6 +254,8 @@ export class AdminCaseService {
       },
     });
 
+    console.log("Assignment found:", assignment);
+
     if (!assignment) return false;
 
     const weekday = day.getDay();
@@ -263,6 +264,9 @@ export class AdminCaseService {
       d => d.weekday === weekday
     );
 
+    console.log("Template days:", assignment?.template.days);
+    console.log("Has operational day:", hasDay)
+
     return hasDay;
   }
 
@@ -270,21 +274,29 @@ export class AdminCaseService {
     employeeId: string,
     page: number = 1,
     limit: number = 10,
+    status?: AdminCaseStatus,
   ) {
     const skip = (page - 1) * limit;
 
+    const where: any = {
+      employeeId,
+    };
+
+    if (status) {
+      where.status = status as AdminCaseStatus;
+    }
+
     const [data, total] = await Promise.all([
       this.prisma.adminCase.findMany({
-        where: { employeeId },
-        include: { scopes: true },
+        where,
+        include: { scopes: true, attachments: true },
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
       }),
-      this.prisma.adminCase.count({
-        where: { employeeId },
-      }),
+      this.prisma.adminCase.count({ where }),
     ]);
+
 
     return {
       data,
@@ -308,6 +320,10 @@ export class AdminCaseService {
       throw new NotFoundException('Caso no existe');
     }
 
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException("Debe indicar un motivo de rechazo");
+    }
+
     if (adminCase.status !== AdminCaseStatus.PENDING) {
       throw new BadRequestException({
         code: 'INVALID_STATUS',
@@ -321,8 +337,9 @@ export class AdminCaseService {
         status: AdminCaseStatus.REJECTED,
         rejectedBy: adminId,
         rejectedAt: new Date(),
-        rejectionReason: reason,
+        rejectedReason: reason,
       },
+      include: { scopes: true },
     });
 
     await this.audit.log({
@@ -361,5 +378,143 @@ export class AdminCaseService {
         status: AdminCaseStatus.CANCELLED,
       },
     });
+  }
+
+  async createByAdmin(dto: CreateAdminCaseDto, adminId: string) {
+    const scopesDates = dto.scopes.map(s => normalizeDay(s.date));
+    await assertNoClosedPeriods(this.prisma, scopesDates);
+
+    const scopes = dto.scopes.map((s) => {
+      validateScopeMinutes(s.startMinute, s.endMinute);
+
+      return {
+        date: normalizeDay(s.date),
+        startMinute: s.startMinute ?? null,
+        endMinute: s.endMinute ?? null,
+        workdayHistoryId: s.workdayHistoryId ?? null,
+      };
+    });
+
+    const otherCases = await this.prisma.adminCase.findMany({
+      where: {
+        employeeId: dto.employeeId,
+        status: AdminCaseStatus.APPLIED,
+      },
+      include: { scopes: true },
+    });
+
+    for (const scope of scopes) {
+      for (const otherCase of otherCases) {
+        for (const otherScope of otherCase.scopes) {
+          if (scope.date.getTime() !== otherScope.date.getTime()) continue;
+
+          if (
+            scopesOverlap(
+              scope.startMinute,
+              scope.endMinute,
+              otherScope.startMinute,
+              otherScope.endMinute,
+            )
+          ) {
+            throw new BadRequestException({
+              code: "ADMIN_CASE_OVERLAP",
+              message: "El caso se solapa con otro y aplicado",
+              date: scope.date.toISOString().slice(0, 10),
+              conflictingCaseId: otherCase.id,
+            });
+          }
+        }
+      }
+    }
+
+    const created = await this.prisma.adminCase.create({
+      data: {
+        employeeId: dto.employeeId,
+        type: dto.type,
+        status: AdminCaseStatus.APPLIED,
+        reasonCode: dto.reasonCode,
+        notes: dto.notes,
+        createdBy: adminId,
+        appliedBy: adminId,
+        appliedAt: new Date(),
+        scopes: { create: scopes },
+      },
+      include: { scopes: true },
+    });
+
+    await this.audit.log({
+      entityType: "ADMIN_CASE",
+      entityId: created.id,
+      action: "ADMIN_CREATE_APPLIED",
+      performedBy: adminId,
+    });
+
+    return created;
+  }
+
+  async createByEmployeeWithEvidence(
+    dto: CreateAdminCaseDto,
+    employeeId: string,
+    files: Express.Multer.File[],
+  ) {
+    const created = await this.createByEmployee(dto, employeeId);
+
+    if (!files?.length) {
+      return this.prisma.adminCase.findUnique({
+        where: { id: created.id },
+        include: { scopes: true, attachments: true },
+      });
+    }
+
+    const attachmentsToCreate: Prisma.AdminCaseAttachmentCreateManyInput[] = [];
+    for (const f of files) {
+      const up = await this.cloudinary.uploadBuffer(
+        f.buffer,
+        f.mimetype,
+         { folder: "admin-cases", }
+        );
+
+        console.log("UPLOAD RESULT:", up)
+
+      attachmentsToCreate.push({
+        adminCaseId: created.id,
+        url: up.secure_url,
+        publicId: up.public_id,
+        resourceType: up.resource_type,
+        format: up.format ?? null,
+        bytes: up.bytes ?? null,
+        originalName: f.originalname ?? null,
+      });
+    }
+
+    await this.prisma.adminCaseAttachment.createMany({
+      data: attachmentsToCreate,
+    });
+
+    return this.prisma.adminCase.findUnique({
+      where: { id: created.id },
+      include: { scopes: true, attachments: true },
+    });
+  }
+
+  async findAttachmentById(id: string) {
+    const attachment = await this.prisma.adminCaseAttachment.findUnique({
+      where: { id },
+    });
+
+    if (!attachment) {
+      throw new NotFoundException("Adjunto no encontrado");
+    }
+
+    const signedUrl = this.cloudinary.getSignedUrl({
+      publicId: attachment.publicId,
+      resourceType: attachment.resourceType as "image" | "raw",
+      format: attachment.format,
+    });
+
+    return {
+      ...attachment,
+      signedUrl,
+    };
   }
 }

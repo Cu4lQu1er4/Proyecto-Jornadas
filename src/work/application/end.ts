@@ -1,7 +1,6 @@
 import { Workday } from "../domain/workday";
 import { WorkdayRepo } from "../domain/repo";
 import {
-  WorkdayHistoryWriter,
   WorkdayHistoryCreate,
 } from "../domain/history.repo";
 import { WorkdayOpenError } from "../domain/errors";
@@ -27,7 +26,6 @@ export interface EndResult {
 export class EndWorkday {
   constructor(
     private readonly repo: WorkdayRepo,
-    private readonly historyRepo: WorkdayHistoryWriter,
     private readonly rules: WorkdayRules,
     private readonly periodRepo: PeriodRepo,
     private readonly scheduleService: EmployeeScheduleService,
@@ -42,7 +40,7 @@ export class EndWorkday {
     const startTime = await this.repo.getStart(employeeId);
     if (!startTime) throw new WorkdayOpenError();
 
-    const periodDesc = getPeriodForDate(now);
+    const periodDesc = getPeriodForDate(startTime);
     const period = await this.periodRepo.findOrCreate(periodDesc);
     ensurePeriodIsOpen(period);
 
@@ -60,7 +58,21 @@ export class EndWorkday {
     const lateArrival = workday.lateArrival(this.rules);
     const earlyLeave = workday.earlyLeave(this.rules);
 
-    await this.repo.close(employeeId, now);
+    await this.repo.closeWithHistory(
+      employeeId,
+      {
+        employeeId,
+        startTime,
+        endTime: now,
+        workedMinutes,
+        expectedMinutes,
+        deltaMinutes,
+        lateArrival,
+        earlyLeave,
+        periodId: period.id,
+      },
+      period.id,
+    );
 
     const history: WorkdayHistoryCreate = {
       employeeId,
@@ -73,8 +85,6 @@ export class EndWorkday {
       earlyLeave,
       periodId: period.id,
     };
-
-    await this.historyRepo.save(history);
 
     return {
       workedMinutes,
