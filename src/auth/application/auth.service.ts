@@ -18,12 +18,17 @@ export class AuthService {
     document: string,
     password: string
   ): Promise<User | null> {
+    console.log("DOCUMENT RAW:", document);
+    console.log("DOCUMENT TYPE:", typeof document);
     const user = await this.userRepo.findByDocument(document);
+
+    console.log("USER FOUND:", user)
 
     if (!user) return null;
     if (!user.active) return null;
 
     const valid = await bcrypt.compare(password, user.passwordHash);
+    console.log("PASSWORD VALID:", valid)
     if (!valid) return null;
 
     return user;
