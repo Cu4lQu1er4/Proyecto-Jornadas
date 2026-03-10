@@ -61,11 +61,13 @@ export class AuthController {
         !user.lastName ||
         !user.pinHash;
 
+      const isProd = process.env.NODE_ENV === "production";
+
       res.cookie('access_token', accessToken, {
         httpOnly: true,
         sameSite: 'lax',
-        secure: false,
-        domain: 'localhost',
+        secure: isProd,
+        domain: isProd ? '.nerpelsas.com' : 'localhost',
         path: '/',
         maxAge: 1000 * 60 * 60 * 10,
       });
