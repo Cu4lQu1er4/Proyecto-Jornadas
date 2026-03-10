@@ -44,6 +44,9 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
       useClass: BcryptPasswordHasher,
     },
   ],
-  exports: [AuthService],
+  exports: [
+    AuthService,
+    JwtModule,
+  ],
 })
 export class AuthModule {}
