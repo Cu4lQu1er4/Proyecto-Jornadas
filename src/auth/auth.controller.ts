@@ -83,11 +83,12 @@ export class AuthController {
         },
         needsOnboarding,
       };
-    } catch {
-      throw new HttpException(
-        'Credenciales invalidas',
-        HttpStatus.UNAUTHORIZED
-      );
+    } catch (error) {
+        console.error(error);
+        throw new HttpException(
+          'Credenciales invalidas',
+          HttpStatus.UNAUTHORIZED
+        );
     }
   }
 
