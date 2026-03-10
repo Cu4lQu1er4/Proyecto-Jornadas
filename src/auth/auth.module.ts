@@ -8,18 +8,22 @@ import { USER_REPO } from "./domain/user.repo";
 import { UserRepoDb } from "./infrastructure/user.repo.db";
 import { PASSWORD_HASHER } from "./domain/password";
 import { BcryptPasswordHasher } from "./infrastructure/bcrypt.hasher";
-import { ListEmployees } from "./application/list.employees";
 import { DeactivateEmployee } from "./application/deactivate-employee";
+import { ListEmployees } from "./application/list.employees";
 import { WorkModule } from "src/work/work.module";
 import { AuthService } from "./application/auth.service";
-
+import { ConfigModule, ConfigService } from "@nestjs/config";
 
 @Module({
   imports: [
-    JwtModule.register({
-      global: true,
-      secret: process.env.JWT_SECRET!,
-      signOptions: { expiresIn: "10h" },
+    ConfigModule,
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        global: true,
+        secret: configService.get<string>("JWT_SECRET"),
+        signOptions: { expiresIn: "10h" },
+      }),
     }),
     WorkModule,
   ],
@@ -31,19 +35,15 @@ import { AuthService } from "./application/auth.service";
     ListEmployees,
     DeactivateEmployee,
     AuthService,
-
     {
       provide: USER_REPO,
       useClass: UserRepoDb,
     },
-
     {
       provide: PASSWORD_HASHER,
       useClass: BcryptPasswordHasher,
     },
   ],
-  exports: [
-    AuthService,
-  ],
+  exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthMocule {}
