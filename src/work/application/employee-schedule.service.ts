@@ -39,7 +39,9 @@ export class EmployeeScheduleService {
     scheduleTemplateId: string,
     effectiveFrom: string,
   ) {
-    const start = new Date(effectiveFrom);
+    const start = effectiveFrom
+      ? new Date(effectiveFrom)
+      : new Date();
     start.setHours(0, 0, 0, 0);
 
     return this.prisma.$transaction(async (tx) => {
