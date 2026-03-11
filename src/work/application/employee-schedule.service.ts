@@ -40,6 +40,7 @@ export class EmployeeScheduleService {
     effectiveFrom: string,
   ) {
     const start = new Date(effectiveFrom);
+    start.setHours(0, 0, 0, 0);
 
     return this.prisma.$transaction(async (tx) => {
       await tx.employeeScheduleAssignment.updateMany({
