@@ -5,7 +5,8 @@ import {
   Post,
   Patch,
   Param,
-  UseGuards, 
+  UseGuards,
+  Delete
 } from "@nestjs/common";
 import { ScheduleTemplateService } from "../application/schedule-template.service";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
@@ -34,5 +35,10 @@ export class ScheduleTemplateController {
   @Patch(":id")
   update(@Param("id") id: string, @Body() body: any) {
     return this.service.update(id, body);
+  }
+
+  @Delete(":id")
+  remove(@Param("id") id: string) {
+    return this.service.remove(id);
   }
 }

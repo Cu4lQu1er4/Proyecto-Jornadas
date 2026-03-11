@@ -39,12 +39,26 @@ export class EmployeeScheduleService {
     scheduleTemplateId: string,
     effectiveFrom: string,
   ) {
-    return this.prisma.employeeScheduleAssignment.create({
-      data: {
-        employeeId,
-        scheduleTemplateId,
-        effectiveFrom: new Date(effectiveFrom),
-      },
+    const start = new Date(effectiveFrom);
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.employeeScheduleAssignment.updateMany({
+        where: {
+          employeeId,
+          effectiveTo: null,
+        },
+        data: {
+          effectiveTo: start,
+        },
+      });
+
+      return tx.employeeScheduleAssignment.create({
+        data: {
+          employeeId,
+          scheduleTemplateId,
+          effectiveFrom: start,
+        },
+      });
     });
   }
 

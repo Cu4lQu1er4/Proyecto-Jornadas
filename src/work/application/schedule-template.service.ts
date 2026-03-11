@@ -72,4 +72,18 @@ export class ScheduleTemplateService {
       },
     });
   }
+
+  async remove(id: string) {
+    const assignments = await this.prisma.employeeScheduleAssignment.count({
+      where: { scheduleTemplateId: id },
+    });
+
+    if (assignments > 0) {
+      throw new Error("No se puede eliminar un horario que esta en uso");
+    }
+
+    return this.prisma.scheduleTemplate.delete({
+      where: { id },
+    });
+  }
 }
