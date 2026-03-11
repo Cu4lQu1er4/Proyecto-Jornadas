@@ -274,7 +274,7 @@ export class WorkService {
         email: dto.email,
         phone: dto.phone,
         passwordHash,
-        pinHash,
+        pinHash,  
         mustChangePassword: false,
         profileCompleted: true,
       },
