@@ -7,16 +7,14 @@ export class EmployeeScheduleService {
     private readonly prisma: PrismaService
   ) {}
 
-  async getCurrentSchedule(employeeId: string) {
-    const now = new Date();
-
+  async getScheduleForEmployee(employeeId: string, date: Date) {
     const assignment = await this.prisma.employeeScheduleAssignment.findFirst({
       where: {
         employeeId,
-        effectiveFrom: { lte: now },
+        effectiveFrom: { lte: date },
         OR: [
           { effectiveTo: null },
-          { effectiveTo: { gte: now } },
+          { effectiveTo: { gte: date } },
         ],
       },
       include: {
@@ -31,16 +29,9 @@ export class EmployeeScheduleService {
       },
     });
 
-    if (!assignment) {
-      return null;
-    }
+    if (!assignment) return null;
 
-    return {
-      assignment: assignment.id,
-      effectiveFrom: assignment.effectiveFrom,
-      effectiveTo: assignment.effectiveTo,
-      template: assignment.template,
-    };
+    return assignment.template.days;
   }
 
   async assignSchedule(
@@ -72,16 +63,15 @@ export class EmployeeScheduleService {
   }
 
   async getCurrentSchedule(employeeId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
 
     const assignment = await this.prisma.employeeScheduleAssignment.findFirst({
       where: {
         employeeId,
-        effectiveFrom: { lte: today },
+        effectiveFrom: { lte: now },
         OR: [
           { effectiveTo: null },
-          { effectiveTo: { gte: today } },
+          { effectiveTo: { gte: now } },
         ],
       },
       include: {
