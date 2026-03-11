@@ -127,8 +127,6 @@ export class AuthController {
         email: true,
         phone: true,
         pinHash: true,
-        profileCompleted: true,
-        mustChangePassword: true,
       },
     });
 
