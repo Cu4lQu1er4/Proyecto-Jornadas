@@ -82,8 +82,14 @@ export class ScheduleTemplateService {
       throw new Error("No se puede eliminar un horario que esta en uso");
     }
 
-    return this.prisma.scheduleTemplate.delete({
-      where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.scheduleTemplateDay.deleteMany({
+        where: { scheduleTemplateId: id },
+      });
+
+      return tx.scheduleTemplate.delete({
+        where: { id },
+      });
     });
   }
 }
