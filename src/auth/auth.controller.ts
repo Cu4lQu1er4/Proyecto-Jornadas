@@ -65,7 +65,7 @@ export class AuthController {
 
       res.cookie('access_token', accessToken, {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: 'none',
         secure: isProd,
         domain: isProd ? '.nerpelsas.com' : 'localhost',
         path: '/',
