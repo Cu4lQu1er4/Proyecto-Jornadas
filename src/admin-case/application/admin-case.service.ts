@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
-import { AdminCaseStatus } from "@prisma/client";
+import { AdminCaseStatus, AdminCaseType } from "@prisma/client";
 import { CreateAdminCaseDto } from "./create-admin-case.dto";
 import { 
   normalizeDay,
@@ -58,19 +58,21 @@ export class AdminCaseService {
         workdayHistoryId: s.workdayHistoryId ?? null,
       };
     });
-    for (const scope of scopes) {
-      const operational = await this.isOperationalDay(
-        dto.employeeId,
-        scope.date,
-      );
+    if (dto.type !== AdminCaseType.INCAPACITY && AdminCaseType.PERMISSION) {
+      for (const scope of scopes) {
+        const operational = await this.isOperationalDay(
+          dto.employeeId,
+          scope.date,
+        );
 
-      if (!operational) {
-        throw new BadRequestException({
-          code: 'NON_OPERATIONAL_DAY',
-          message:
-            'No se puede crear una solicitud en un dia no laborable',
-          date: scope.date.toISOString().slice(0, 10),
-        });
+        if (!operational) {
+          throw new BadRequestException({
+            code: 'NON_OPERATIONAL_DAY',
+            message:
+              'No se puede crear una solicitud en un dia no laborable',
+            date: scope.date.toISOString().slice(0, 10),
+          });
+        }
       }
     }
 
