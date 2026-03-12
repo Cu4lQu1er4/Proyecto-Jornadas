@@ -299,7 +299,28 @@ export class WorkService {
     });
   }
 
-  async countLiveWorkdays() {
-    return this.prisma.workdayOpen.count();
+  async getLiveWorkdays() {
+    const workdays = await this.prisma.workdayOpen.findMany({
+      include: {
+        employee: {
+          select: {
+            id: true,
+            document: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    return {
+      count: workdays.length,
+      employees: workdays.map(w => ({
+        id: w.employee.id,
+        document: w.employee.document,
+        name: `${w.employee.firstName ?? ""} ${w.employee.lastName ?? ""}`.trim(),
+        startTime: w.startTime,
+      })),
+    };
   }
 }

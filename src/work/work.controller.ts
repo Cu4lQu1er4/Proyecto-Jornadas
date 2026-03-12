@@ -265,8 +265,6 @@ export class WorkController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   async getLiveWorkdays() {
-    const count = await this.service.countLiveWorkdays();
-
-    return { count };
+    return this.service.getLiveWorkdays();
   }
 }
