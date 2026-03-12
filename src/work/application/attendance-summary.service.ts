@@ -175,15 +175,26 @@ export class AttendanceSummaryService {
     }
 
     // ✅ 2) SI NO HAY OPEN: buscar history del día
-    const history = await this.prisma.workdayHistory.findFirst({
+    const histories = await this.prisma.workdayHistory.findMany({
       where: {
         employeeId,
         startTime: { gte: start, lt: end },
       },
+      orderBy: {
+        startTime: "asc",
+      }
     });
 
-    const workedMinutes = history?.workedMinutes ?? 0;
-    const deltaMinutes = history ? history.deltaMinutes : -expectedMinutes;
+    const workedMinutes = histories.reduce(
+      (sum, h) => sum + h.workedMinutes,
+      0
+    );
+
+    const mainHistory =
+      histories.find(h => h.workedMinutes > 0) ??
+      histories[0];
+
+    const deltaMinutes = workedMinutes - expectedMinutes;
 
     // ... aquí sigue tu lógica de scopes/justificaciones tal cual ...
     const scopes = await this.prisma.adminCaseScope.findMany({
@@ -263,8 +274,8 @@ export class AttendanceSummaryService {
       workedMinutes,
       expectedMinutes,
       deltaMinutes,
-      lateArrival: history?.lateArrival ?? false,
-      earlyLeave: history?.earlyLeave ?? false,
+      lateArrival: mainHistory?.lateArrival ?? false,
+      earlyLeave: mainHistory?.earlyLeave ?? false,
       justifiedMinutes,
       unjustifiedMinutes,
       status,
