@@ -199,7 +199,10 @@ export class AttendanceSummaryService {
     // ... aquí sigue tu lógica de scopes/justificaciones tal cual ...
     const scopes = await this.prisma.adminCaseScope.findMany({
       where: {
-        date: day,
+        date: {
+          gte: start,
+          lt: end,
+        },
         adminCase: {
           employeeId,
           status: AdminCaseStatus.APPLIED,
