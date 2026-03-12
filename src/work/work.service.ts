@@ -298,4 +298,8 @@ export class WorkService {
       data: { active },
     });
   }
+
+  async countLiveWorkdays() {
+    return this.prisma.workdayOpen.count();
+  }
 }
