@@ -58,7 +58,7 @@ export class AdminCaseService {
         workdayHistoryId: s.workdayHistoryId ?? null,
       };
     });
-    if (dto.type !== AdminCaseType.INCAPACITY && AdminCaseType.PERMISSION) {
+    if (dto.type !== AdminCaseType.INCAPACITY && dto.type !== AdminCaseType.PERMISSION) {
       for (const scope of scopes) {
         const operational = await this.isOperationalDay(
           dto.employeeId,
