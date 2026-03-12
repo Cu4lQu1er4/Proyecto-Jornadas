@@ -55,7 +55,7 @@ export class AuthController {
       };
 
       const accessToken = this.jwtService.sign(payload, {
-        expiresIn; "15m",
+        expiresIn: "15m",
       });
 
       const refreshToken = this.jwtService.sign(
