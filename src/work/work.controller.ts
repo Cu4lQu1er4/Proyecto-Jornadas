@@ -21,6 +21,7 @@ import { RolesGuard } from "src/auth/roles.guard";
 import { AttendanceSummaryService } from "./application/attendance-summary.service";
 import { CreateEmployeeDto } from "./application/create-employee.dto";
 import { CompleteProfileDto } from "./application/complete-profile.dto";
+import { PrismaService } from "src/prisma/prisma.service";
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("work")
@@ -28,6 +29,7 @@ export class WorkController {
   constructor(
     private readonly service: WorkService,
     private readonly attemdamceSummary: AttendanceSummaryService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Roles(Role.EMPLOYEE)
@@ -259,5 +261,18 @@ export class WorkController {
     @Param('id') employeeId: string,
   ) {
     return this.service.listEmployeePeriods(employeeId);
+  }
+
+  @Get("admin/live-workdays")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async getLiveWorkdays() {
+    const count = await this.prisma.workday.count({
+      where: {
+        endTime: null
+      }
+    });
+
+    return { count };
   }
 }
