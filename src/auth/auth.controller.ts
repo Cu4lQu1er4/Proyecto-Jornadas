@@ -54,7 +54,14 @@ export class AuthController {
         role: user.role,
       };
 
-      const accessToken = this.jwtService.sign(payload);
+      const accessToken = this.jwtService.sign(payload, {
+        expiresIn; "15m",
+      });
+
+      const refreshToken = this.jwtService.sign(
+        { sub: user.id },
+        { expiresIn: "30d" }
+      );
 
       const needsOnboarding =
         !user.firstName ||
@@ -65,11 +72,20 @@ export class AuthController {
 
       res.cookie('access_token', accessToken, {
         httpOnly: true,
-        sameSite: 'none',
+        sameSite: 'lax',
         secure: isProd,
         domain: isProd ? '.nerpelsas.com' : 'localhost',
         path: '/',
-        maxAge: 1000 * 60 * 60 * 10,
+        maxAge: 1000 * 60 * 15,
+      });
+
+      res.cookie("refresh_token", refreshToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isProd,
+        domain: isProd ? ".nerpelsas.com" : "localhost",
+        path: "/",
+        maxAge: 1000 * 60 * 60 * 24 * 30,
       });
 
       return {
@@ -92,6 +108,43 @@ export class AuthController {
     }
   }
 
+  @Post("refresh")
+  @Public()
+  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies["refresh_token"];
+
+    if (!refreshToken) {
+      throw new UnauthorizedException("No refresh token");
+    }
+
+    const payload = await this.jwtService.verifyAsync(refreshToken);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, role: true }
+    });
+
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+
+    const accessToken = this.jwtService.sign(
+      { sub: user.id, role: user.role },
+      { expiresIn: "15m" }
+    );
+
+    res.cookie("access_token", accessToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true,
+      domain: ".nerpelsas.com",
+      path: "/",
+      maxAge: 1000 * 60 * 15,
+    });
+
+    return { ok: true };
+  }
+
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
     const isProd = process.env.NODE_ENV === "production";
@@ -102,6 +155,14 @@ export class AuthController {
       secure: isProd,
       domain: isProd ? '.nerpelsas.com' : 'localhost',
       path: '/',
+    });
+
+    res.clearCookie("refresh_token", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProd,
+      domain: isProd ? ".nerpelsas.com" : "localhost",
+      path: "/",
     });
 
     return { success: true };
