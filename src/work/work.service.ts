@@ -316,9 +316,9 @@ export class WorkService {
     return {
       count: workdays.length,
       employees: workdays.map(w => ({
-        id: w.employee.id,
-        document: w.employee.document,
-        name: `${w.employee.firstName ?? ""} ${w.employee.lastName ?? ""}`.trim(),
+        id: w.employeeId.id,
+        document: w.employeeId.document,
+        name: `${w.employeeId.firstName ?? ""} ${w.employeeId.lastName ?? ""}`.trim(),
         startTime: w.startTime,
       })),
     };
