@@ -300,27 +300,36 @@ export class WorkService {
   }
 
   async getLiveWorkdays() {
-    const workdays = await this.prisma.workdayOpen.findMany({
-      include: {
-        employee: {
-          select: {
-            id: true,
-            document: true,
-            firstName: true,
-            lastName: true,
-          },
+    const workdays = await this.prisma.workdayOpen.findMany();
+
+    const employees = await this.prisma.user.findMany({
+      where: {
+        id: {
+          in: workdays.map(w => w.employeeId),
         },
+      },
+      select: {
+        id: true,
+        document: true,
+        firstName: true,
+        lastName: true,
       },
     });
 
+    const map = new Map(employees.map(e => [e.id, e]));
+
     return {
       count: workdays.length,
-      employees: workdays.map(w => ({
-        id: w.employeeId.id,
-        document: w.employeeId.document,
-        name: `${w.employeeId.firstName ?? ""} ${w.employeeId.lastName ?? ""}`.trim(),
-        startTime: w.startTime,
-      })),
+      employees: workdays.map(w => {
+        const emp = map.get(w.employeeId);
+
+        return {
+          id: emp?.id,
+          document: emp?.document,
+          name: `${emp?.firstName ?? ""} ${emp?.lastName ?? ""}`.trim() || emp?.document,
+          startTime: w.startTime,
+        };
+      }),
     };
   }
 }
