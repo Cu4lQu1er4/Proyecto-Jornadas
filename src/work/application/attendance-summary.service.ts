@@ -32,18 +32,30 @@ export type AttendanceDaySummary = {
 };
 
 function parseYmdLocal(ymd: string): Date {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
-  if (!m) throw new Error(`Invalid date format. Expected YYYY-MM-DD, got: ${ymd}`);
+  const m = /^(\d{4})-(\d{2})$/.excec(ymd);
+  if (!m) {
+    throw new Error(`Invalid date format. Expected YYYY-MM-DD, got: ${ymd}`);
+  }
 
   const year = Number(m[1]);
   const month = Number(m[2]);
   const dayNum = Number(m[3]);
 
-  const d = new Date(year, month - 1, dayNum);
-  d.setHours(0, 0, 0, 0);
+  const utcDate = new Date(Date.UTC(year, month - 1, dayNum));
 
-  if (Number.isNaN(d.getTime())) throw new Error(`Invalid date value: ${ymd}`);
-  return d;
+  const colombiaDate = new Date(
+    utcDate.toLocaleString("en-US", {
+      timeZone: "America/Bogota",
+    })
+  );
+
+  colombiaDate.setHours(0, 0, 0, 0);
+
+  if (Number.isNaN(colombiaDate.getTime())) {
+    throw new Error(`Invalid date value ${ymd}`);
+  }
+
+  return colombiaDate;
 }
 
 function scopesOverlap(
