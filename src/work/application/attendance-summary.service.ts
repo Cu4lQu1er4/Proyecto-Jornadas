@@ -32,7 +32,7 @@ export type AttendanceDaySummary = {
 };
 
 function parseYmdLocal(ymd: string): Date {
-  const m = /^(\d{4})-(\d{2})$/.excec(ymd);
+  const m = /^(\d{4})-(\d{2})$/.exec(ymd);
   if (!m) {
     throw new Error(`Invalid date format. Expected YYYY-MM-DD, got: ${ymd}`);
   }
