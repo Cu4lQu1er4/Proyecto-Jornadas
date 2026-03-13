@@ -154,7 +154,7 @@ export class AttendanceSummaryService {
         const deltaLive = workedMinutesLive - expectedMinutes;
 
         const expectedStart = new Date(start);
-        expectedStart.setMinutes(dayConfig.startMinute);
+        expectedStart.setHours(0, dayConfig.startMinute, 0, 0);
 
         const lateArrivalLive = openStart.getTime() > expectedStart.getTime();
 
