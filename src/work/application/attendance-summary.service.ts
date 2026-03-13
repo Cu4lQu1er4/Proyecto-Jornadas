@@ -182,7 +182,7 @@ export class AttendanceSummaryService {
           earlyLeave: false, // no puedes saber earlyLeave mientras está abierta
           justifiedMinutes: 0,
           unjustifiedMinutes: Math.max(0, -deltaLive), // si va en negativo, lo muestra como “faltante” en vivo
-          status: deltaLive < 0 ? "PARTIALLY_UNJUSTIFIED" : "NORMAL",
+          status: "NORMAL",
           adminCases: [],
           isOpen: true,
         };
