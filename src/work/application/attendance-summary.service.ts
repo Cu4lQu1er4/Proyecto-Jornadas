@@ -39,23 +39,13 @@ function parseYmdLocal(ymd: string): Date {
 
   const year = Number(m[1]);
   const month = Number(m[2]);
-  const dayNum = Number(m[3]);
+  const day = Number(m[3]);
 
-  const utcDate = new Date(Date.UTC(year, month - 1, dayNum));
+  const date = new Date(year, month - 1, day);
 
-  const colombiaDate = new Date(
-    utcDate.toLocaleString("en-US", {
-      timeZone: "America/Bogota",
-    })
-  );
+  date.setHours(0, 0, 0, 0);
 
-  colombiaDate.setHours(0, 0, 0, 0);
-
-  if (Number.isNaN(colombiaDate.getTime())) {
-    throw new Error(`Invalid date value ${ymd}`);
-  }
-
-  return colombiaDate;
+  return date;
 }
 
 function scopesOverlap(
