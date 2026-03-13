@@ -154,7 +154,7 @@ export class AttendanceSummaryService {
         const deltaLive = workedMinutesLive - expectedMinutes;
 
         const expectedStart = new Date(start);
-        expectedStart.setMinutes(dayConfig.startMinute); // start está en 00:00, esto funciona aunque sea > 59
+        expectedStart.setMinutes(dayConfig.startMinute);
 
         const lateArrivalLive = openStart.getTime() > expectedStart.getTime();
 
