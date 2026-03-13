@@ -20,7 +20,8 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:3000',
-      'https://work.nerpelsas.com'
+      'https://work.nerpelsas.com',
+      'https://kiosk.nerpelsas.com'
     ],
     credentials: true,
   });
