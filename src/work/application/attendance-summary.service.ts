@@ -162,14 +162,14 @@ export class AttendanceSummaryService {
 
         expectedStart.setHours(hours, minutes, 0, 0);
 
-        console.log("CHECK TIMES". {
+        console.log("CHECK TIMES", {
           openStartISO: openStart.toISOString(),
           openStartLocal: openStart.toString(),
           expectedStartISO: expectedStart.toISOString(),
           expectedStartLocal: expectedStart.toString(),
           startMinute: dayConfig.startMinute,
         });
-        
+
         const lateArrivalLive = openStart.getTime() > expectedStart.getTime();
 
 
