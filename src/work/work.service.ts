@@ -17,6 +17,8 @@ import { EmployeeScheduleService } from "./application/employee-schedule.service
 import * as bcrypt from "bcrypt";
 import { CreateEmployeeDto } from "./application/create-employee.dto";
 import { CompleteProfileDto } from "./application/complete-profile.dto";
+import { getNextAllowedMarks } from "./domain/rules";
+import { MarkType } from "./domain/rules";
 
 @Injectable()
 export class WorkService {
@@ -331,5 +333,55 @@ export class WorkService {
         };
       }),
     };
+  }
+
+  async mark(employeeId: string, type: MarkType) {
+    const now = new Date();
+
+    const hasOpen = await this.repo.hasOpen(employeeId);
+    if (!hasOpen) {
+      throw new Error('No hay jornada abierta');
+    }
+
+    const startTime = await this.repo.getStart(employeeId);
+
+    const marks = await this.repo.getMarks(employeeId, startTime, now);
+
+    const last = marks.length > 0
+      ? (marks[marks.length - 1].type as MarkType)
+      : undefined;
+
+    const allowed = getNextAllowedMarks(last);
+
+    if (!allowed.includes(type)) {
+      throw new Error(`Marcacion invalida: ${type}`);
+    }
+
+    await this.repo.addMark(employeeId, {
+      type,
+      time: now,
+    });
+  }
+
+  async getNextActions(employeeId: string) {
+    const hasOpen = await this.repo.hasOpen(employeeId);
+
+    if (!hasOpen) {
+      return {
+        allowed: ['START'],
+      };
+    }
+
+    const now = new Date();
+    const startTime = await this.repo.getStart(employeeId);
+    const marks = await this.repo.getMarks(employeeId, startTime, now);
+
+    const last = marks.length > 0
+      ? (marks[marks.length - 1].type as MarkType)
+      : undefined;
+
+    const allowed = getNextAllowedMarks(last);
+
+    return { allowed };
   }
 }

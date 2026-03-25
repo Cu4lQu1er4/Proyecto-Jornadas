@@ -156,6 +156,8 @@ model ScheduleTemplate {
   createdAt   DateTime                     @default(now())
   assignments EmployeeScheduleAssignment[]
   days        ScheduleTemplateDay[]
+
+  breaks      ScheduleTemplateBreak[]
 }
 
 model ScheduleTemplateDay {
@@ -214,4 +216,26 @@ model AdminCaseAttachment {
 
   @@index([adminCaseId])
   @@map("admin_case_attachment")
+}
+
+model WorkdayMark {
+  id         String   @id @default(uuid())
+  employeeId String
+  type       String
+  time       DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([employeeId, time])
+}
+
+model ScheduleTemplateBreak {
+  id                 String  @id @default(uuid())
+  scheduleTemplateId String
+  type               String
+  startMinute        Int
+  endMinute          Int
+  
+  template ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
+
+  @@index([scheduleTemplateId])
 }

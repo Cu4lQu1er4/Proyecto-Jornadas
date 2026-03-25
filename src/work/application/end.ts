@@ -8,6 +8,7 @@ import { WorkdayRules } from "../domain/rules";
 import { PeriodRepo } from "../domain/period.repo";
 import { getPeriodForDate, ensurePeriodIsOpen } from "../domain/period-rules";
 import { EmployeeScheduleService } from "./employee-schedule.service";
+import { buildIntervals } from "../domain/calc";
 
 export interface EndCmd {
   employeeId: string;
@@ -44,7 +45,11 @@ export class EndWorkday {
     const period = await this.periodRepo.findOrCreate(periodDesc);
     ensurePeriodIsOpen(period);
 
-    const workday = new Workday(startTime, now);
+    const marks = await this.repo.getMarks(employeeId, startTime, now);
+
+    const intervals = buildIntervals(startTime, now, marks);
+    
+    const workday = new Workday(startTime, now, intervals );
 
     const days = await this.scheduleService.getScheduleForEmployee(employeeId, now);
 

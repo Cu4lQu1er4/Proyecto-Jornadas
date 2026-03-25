@@ -32,7 +32,7 @@ export class WorkdayRepoMem implements WorkdayRepo {
 
   async closeWithHistory(
     employeeId: string, 
-    history: WorkdayHistoryCreate, 
+    history: WorkdayHistoryCreate,
     periodId: string
   ): Promise<void> {
     if (!history.endTime) {
@@ -40,5 +40,9 @@ export class WorkdayRepoMem implements WorkdayRepo {
     }
     
     await this.close(employeeId, history.endTime);
+  }
+
+  async getMarks(employeeId: string, from: Date, to: Date): Promise<any[]> {
+    return [];
   }
 }

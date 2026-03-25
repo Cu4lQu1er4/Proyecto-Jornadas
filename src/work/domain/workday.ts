@@ -4,6 +4,11 @@ export class Workday {
   constructor(
     private readonly start: Date,
     private readonly end: Date,
+    private readonly intervals: {
+      start: Date;
+      end: Date;
+      type: string;
+    }[] = [],
   ) {}
 
   private minutesBetween(a: Date, b: Date): number {
@@ -70,6 +75,16 @@ export class Workday {
   }
 
   workedMinutes(rules: WorkdayRules): number {
+
+    if (this,this.intervals.length > 0) {
+      return this.intervals
+        .filter(i => i.type === 'WORK')
+        .reduce(
+          (sum, i) => sum + this.minutesBetween(i.start, i.end),
+          0
+        );
+    }
+    
     const total = this.minutesBetween(this.start, this.end);
 
     const deducted = rules.breaks.reduce(

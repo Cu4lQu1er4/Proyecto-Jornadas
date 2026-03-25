@@ -15,6 +15,7 @@ import { KioskAuthGuard } from "./kiosk-auth.guard";
 import * as bcrypt from "bcrypt";
 import { Public } from "src/auth/public.decorator";
 import { PunchDto } from "./dto/punch.dto";
+import { MarkType } from "src/work/domain/rules";
 
 const MAX_PIN_ATTEMPS = 5;
 const LOCK_MINUTES = 10;
@@ -250,5 +251,42 @@ export class KioskController {
     }
 
     return { status: "OK" };
+  }
+
+  @UseGuards(KioskAuthGuard)
+  @Post("mark")
+  async mark(
+    @Req() req: any,
+    @Body() body: { type: string }
+  ) {
+    const client = req.headers['x-client'];
+
+    if (client !== 'kiosk') {
+      throw new HttpException(
+        { code: 'KIOSK_ONLY' },
+        HttpStatus.FORBIDDEN
+      );
+    }
+
+    const employeeId = req.kiosk.employeeId;
+
+    try {
+      await this.workService.mark(employeeId, body.type as MarkType);
+
+      return { status: "OK" };
+    } catch (e) {
+      throw new HttpException(
+        { message: e.message },
+        HttpStatus.BAD_REQUEST
+      );
+    }
+  }
+
+  @UseGuards(KioskAuthGuard)
+  @Get("next-actions")
+  async nextActions(@Req() req: any) {
+    const employeeId = req.kiosk.employeeId;
+
+    return this.workService.getNextActions(employeeId);
   }
 }

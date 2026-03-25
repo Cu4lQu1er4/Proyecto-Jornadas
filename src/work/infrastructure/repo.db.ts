@@ -92,4 +92,27 @@ export class WorkdayRepoDb implements WorkdayRepo {
       });
     });
   }
+
+  async addMark(employeeId: string, data: { type: string; time: Date }) {
+    await this.prisma.workdayMark.create({
+      data: {
+        employeeId,
+        type: data.type,
+        time: data.time,
+      },
+    });
+  }
+
+  async getMarks(employeeId: string, from: Date, to: Date) {
+    return this.prisma.workdayMark.findMany({
+      where: {
+        employeeId,
+        time: {
+          gte: from,
+          lte: to,
+        },
+      },
+      orderBy: { time: 'asc' },
+    });
+  }
 }

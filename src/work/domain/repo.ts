@@ -24,4 +24,10 @@ export interface WorkdayRepo {
     history: WorkdayHistoryCreate,
     periodId: string,
   ): Promise<void>;
+
+  getMarks(
+    employeeId: string,
+    from: Date,
+    to: Date
+  ): Promise<any[]>;
 }
