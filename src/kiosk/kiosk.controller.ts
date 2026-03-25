@@ -259,6 +259,8 @@ export class KioskController {
     @Req() req: any,
     @Body() body: { type: string }
   ) {
+
+    console.log("HEADERS:", req.headers);
     const client = req.headers['x-client'];
 
     if (client !== 'kiosk') {
