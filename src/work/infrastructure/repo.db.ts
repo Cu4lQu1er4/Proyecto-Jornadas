@@ -88,6 +88,7 @@ export class WorkdayRepoDb implements WorkdayRepo {
           period: {
             connect: { id: periodId },
           },
+          pauseMinutes: history.pauseMinutes,
         },
       });
     });

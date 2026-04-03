@@ -95,6 +95,19 @@ async function logSystemDecisionOnce(
   });
 }
 
+function getExpectedMinutesForDate(
+  date: Date,
+  scheduleDays: { weekday: number; startMinute: number; endMinute: number }[],
+) {
+  const weekday = date.getDay();
+
+  const dayConfig = scheduleDays.find((d) => d.weekday === weekday);
+
+  if (!dayConfig) return 0;
+
+  return Math.max(0, dayConfig.endMinute - dayConfig.startMinute);
+}
+
 @Injectable()
 export class AttendanceSummaryService {
   constructor(
@@ -134,7 +147,6 @@ export class AttendanceSummaryService {
 
     const expectedMinutes = Math.max(0, dayConfig.endMinute - dayConfig.startMinute);
 
-    // ✅ 1) PRIMERO: ¿Hay jornada abierta HOY?
     const open = await this.prisma.workdayOpen.findUnique({
       where: { employeeId },
       select: { startTime: true },
@@ -144,8 +156,6 @@ export class AttendanceSummaryService {
       const openStart = new Date(open.startTime);
 
       if (openStart >= start && openStart < end) {
-        // OJO: lo ideal es usar "new Date()" directo (tiempo del servidor).
-        // Si necesitas Bogotá, asegúrate de guardar/normalizar con TZ a nivel DB/servidor.
         const now = new Date();
 
         const workedMinutesLive = Math.max(
@@ -153,43 +163,35 @@ export class AttendanceSummaryService {
           Math.floor((now.getTime() - openStart.getTime()) / 60000)
         );
 
-        const deltaLive = workedMinutesLive - expectedMinutes;
-
+        const pauseMinutesLive = 0;
+        const realWorkedLive = workedMinutesLive + pauseMinutesLive;
+        const deltaLive = realWorkedLive - expectedMinutes;
+        
         const expectedStart = new Date(start);
-
+        
         const hours = Math.floor(dayConfig.startMinute / 60);
         const minutes = dayConfig.startMinute % 60;
-
+        
         expectedStart.setUTCHours(hours + 5, minutes, 0, 0);
-
-        console.log("CHECK TIMES", {
-          openStartISO: openStart.toISOString(),
-          openStartLocal: openStart.toString(),
-          expectedStartISO: expectedStart.toISOString(),
-          expectedStartLocal: expectedStart.toString(),
-          startMinute: dayConfig.startMinute,
-        });
-
+        
         const lateArrivalLive = openStart.getTime() > expectedStart.getTime();
-
-
+        
         return {
           date: day.toISOString().slice(0, 10),
           workedMinutes: workedMinutesLive,
           expectedMinutes,
           deltaMinutes: deltaLive,
           lateArrival: lateArrivalLive,
-          earlyLeave: false, // no puedes saber earlyLeave mientras está abierta
+          earlyLeave: false,
           justifiedMinutes: 0,
-          unjustifiedMinutes: Math.max(0, -deltaLive), // si va en negativo, lo muestra como “faltante” en vivo
+          unjustifiedMinutes: Math.max(0, -deltaLive),
           status: "NORMAL",
           adminCases: [],
           isOpen: true,
         };
       }
     }
-
-    // ✅ 2) SI NO HAY OPEN: buscar history del día
+    
     const histories = await this.prisma.workdayHistory.findMany({
       where: {
         employeeId,
@@ -200,18 +202,25 @@ export class AttendanceSummaryService {
       }
     });
 
+    
     const workedMinutes = histories.reduce(
       (sum, h) => sum + h.workedMinutes,
       0
     );
 
+    const pauseMinutes = histories.reduce(
+      (sum, h) => sum + (h.pauseMinutes ?? 0),
+      0
+    );
+
+    const realWorked = workedMinutes + pauseMinutes;
+
+    const deltaMinutes = realWorked - expectedMinutes;
+
     const mainHistory =
       histories.find(h => h.workedMinutes > 0) ??
       histories[0];
 
-    const deltaMinutes = workedMinutes - expectedMinutes;
-
-    // ... aquí sigue tu lógica de scopes/justificaciones tal cual ...
     const scopes = await this.prisma.adminCaseScope.findMany({
       where: {
         date: {
@@ -264,7 +273,7 @@ export class AttendanceSummaryService {
       status = "CONFLICT";
     } else if (hasIncapacity && justifiedMinutes >= expectedMinutes) {
       status = "INCAPACITY";
-    } else if (workedMinutes === 0 && unjustifiedMinutes === expectedMinutes) {
+    } else if (realWorked === 0 && unjustifiedMinutes === expectedMinutes) {
       status = "UNJUSTIFIED_ABSENCE";
     } else if (unjustifiedMinutes === 0 && justifiedMinutes > 0) {
       status = "JUSTIFIED";
@@ -327,7 +336,18 @@ export class AttendanceSummaryService {
     }
 
     const totalWorked = days.reduce((a, d) => a + d.workedMinutes, 0);
-    const totalExpected = days.reduce((a, d) => a + d.expectedMinutes, 0);
+    let totalExpected = 0;
+
+    for (const day of days) {
+      const dateObj = parseYmdLocal(day.date);
+
+      const scheduleDays = await this.scheduleService.getScheduleForEmployee(
+        employeeId,
+        dateObj,
+      );
+
+      totalExpected += getExpectedMinutesForDate(dateObj, scheduleDays ?? []);
+    }
     const totalJustified = days.reduce((a, d) => a + d.justifiedMinutes, 0);
     const totalUnjustified = days.reduce((a, d) => a + d.unjustifiedMinutes, 0);
 

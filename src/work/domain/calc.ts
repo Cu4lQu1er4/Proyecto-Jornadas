@@ -3,6 +3,11 @@ export type WorkCalc = {
   extraMinutes: number;
 };
 
+type Mark = {
+  type: string;
+  time: Date;
+};
+
 export function calcWork(start: Date, end: Date, scheduleMinutes: number): WorkCalc {
   const startMs = start.getTime();
   const endMs = end.getTime();
@@ -63,3 +68,54 @@ export function buildIntervals (start, end, marks) {
 
   return intervals;
 }
+
+export function calculatePauseMinutesDetailed(marks: Mark[]): {
+  breakMinutes: number;
+  lunchMinutes: number;
+  totalPauseMinutes: number;
+} {
+  let breakMinutes = 0;
+  let lunchMinutes = 0;
+
+  let currentStart: Date | null = null;
+  let currentType: "BREAK" | "LUNCH" | null = null;
+
+  for (const m of marks) {
+    if (m.type === "BREAK_START") {
+      currentStart = m.time;
+      currentType = "BREAK";
+    }
+
+    if (m.type === "LUNCH_START") {
+      currentStart = m.time;
+      currentType = "LUNCH"
+    }
+
+    if (
+      (m.type === "BREAK_END" || m.type === "LUNCH_END") &&
+      currentStart &&
+      currentType
+    ) {
+      const minutes = Math.floor(
+        (m.time.getTime() - currentStart.getTime()) / 60000
+      );
+
+      if (currentType === "BREAK") {
+        breakMinutes += minutes;
+      }
+
+      if (currentType === "LUNCH") {
+        lunchMinutes += minutes;
+      }
+
+      currentStart = null;
+      currentType = null;
+    }
+  }
+
+  return {
+    breakMinutes,
+    lunchMinutes,
+    totalPauseMinutes: breakMinutes + lunchMinutes,
+  };
+} 

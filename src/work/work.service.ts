@@ -19,6 +19,7 @@ import { CreateEmployeeDto } from "./application/create-employee.dto";
 import { CompleteProfileDto } from "./application/complete-profile.dto";
 import { getNextAllowedMarks } from "./domain/rules";
 import { MarkType } from "./domain/rules";
+import { calculatePauseMinutesDetailed } from "./domain/calc";
 
 @Injectable()
 export class WorkService {
@@ -364,23 +365,43 @@ export class WorkService {
   }
 
   async getNextActions(employeeId: string) {
-    const hasOpen = await this.repo.hasOpen(employeeId);
+    const now = new Date();
 
+    const hasOpen = await this.repo.hasOpen(employeeId);
     if (!hasOpen) {
-      return {
-        allowed: ['START'],
-      };
+      return { allowed: [] };
     }
 
-    const now = new Date();
     const startTime = await this.repo.getStart(employeeId);
+
     const marks = await this.repo.getMarks(employeeId, startTime, now);
+
+    const pauses = calculatePauseMinutesDetailed(marks);
 
     const last = marks.length > 0
       ? (marks[marks.length - 1].type as MarkType)
       : undefined;
 
-    const allowed = getNextAllowedMarks(last);
+    const MAX_BREAK = 20;
+    const MAX_LUNCH = 60;
+
+    const canStartBreak = pauses.breakMinutes < MAX_BREAK;
+    const canStartLunch = pauses.lunchMinutes < MAX_LUNCH;
+
+    const allowed: MarkType[] = [];
+
+    if (!last) {
+      if (canStartBreak) allowed.push("BREAK_START");
+      if (canStartLunch) allowed.push("LUNCH_START");
+    }
+
+    if (last === "BREAK_END") {
+      if (canStartLunch) allowed.push("LUNCH_START");
+    }
+
+    if (last === "LUNCH_START") {
+      allowed.push("LUNCH_END");
+    }
 
     return { allowed };
   }

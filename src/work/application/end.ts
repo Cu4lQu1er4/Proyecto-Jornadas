@@ -8,7 +8,7 @@ import { WorkdayRules } from "../domain/rules";
 import { PeriodRepo } from "../domain/period.repo";
 import { getPeriodForDate, ensurePeriodIsOpen } from "../domain/period-rules";
 import { EmployeeScheduleService } from "./employee-schedule.service";
-import { buildIntervals } from "../domain/calc";
+import { buildIntervals, calculatePauseMinutesDetailed } from "../domain/calc";
 
 export interface EndCmd {
   employeeId: string;
@@ -47,19 +47,32 @@ export class EndWorkday {
 
     const marks = await this.repo.getMarks(employeeId, startTime, now);
 
+    const pauses = calculatePauseMinutesDetailed(marks);
+
     const intervals = buildIntervals(startTime, now, marks);
     
-    const workday = new Workday(startTime, now, intervals );
+    const workday = new Workday(startTime, now, intervals);
 
     const days = await this.scheduleService.getScheduleForEmployee(employeeId, now);
 
     const expectedMinutes = workday.expectedMinutesFromSchedule(days ?? []);
 
-    const workedMinutes = workday.workedMinutes(this.rules);
+    const totalMinutes = Math.floor((now.getTime() - startTime.getTime()) / 60000);
 
-    const deltaMinutes = workedMinutes - expectedMinutes;
+    const workedMinutes = totalMinutes - pauses.totalPauseMinutes;
 
-  
+    const MAX_BREAK = 20;
+    const MAX_LUNCH = 60;
+
+    const breakExcess = Math.max(0, pauses.breakMinutes - MAX_BREAK);
+    const lunchExcess = Math.max(0, pauses.lunchMinutes - MAX_LUNCH);
+
+    const totalExcess = breakExcess + lunchExcess;
+
+    const realWorked = workedMinutes + pauses.totalPauseMinutes - totalExcess;
+
+    const deltaMinutes = realWorked - expectedMinutes;
+
     const lateArrival = workday.lateArrival(this.rules);
     const earlyLeave = workday.earlyLeave(this.rules);
 
@@ -75,6 +88,7 @@ export class EndWorkday {
         lateArrival,
         earlyLeave,
         periodId: period.id,
+        pauseMinutes: pauses.totalPauseMinutes,
       },
       period.id,
     );
@@ -89,6 +103,7 @@ export class EndWorkday {
       lateArrival,
       earlyLeave,
       periodId: period.id,
+      pauseMinutes: pauses.totalPauseMinutes,
     };
 
     return {

@@ -49,6 +49,7 @@ export class WorkdayHistoryRepoDb
       earlyLeave: row.earlyLeave,
       periodId: row.periodId,
       createdAt: row.createdAt,
+      pauseMinutes: row.pauseMinutes,
     }));
   }
 
@@ -71,6 +72,7 @@ export class WorkdayHistoryRepoDb
       earlyLeave: row.earlyLeave,
       periodId: row.periodId,
       createdAt: row.createdAt,
+      pauseMinutes: row.pauseMinutes,
     };
   }
 
@@ -103,6 +105,7 @@ export class WorkdayHistoryRepoDb
       earlyLeave: row.earlyLeave,
       periodId: row.periodId,
       createdAt: row.createdAt,
+      pauseMinutes: row.pauseMinutes,
       adjustments: row.adjustments.map(adj => ({
         type: adj.type as "ADD" | "SUBTRACT",
         minutes: adj.minutes,
@@ -134,6 +137,7 @@ export class WorkdayHistoryRepoDb
       earlyLeave: row.earlyLeave,
       periodId: row.periodId,
       createdAt: row.createdAt,
+      pauseMinutes: row.pauseMinutes
     }));
   }
 }

@@ -29,6 +29,7 @@ model WorkdayHistory {
   periodId        String
   adjustments     WorkdayAdjustment[]
   period          WorkPeriod          @relation(fields: [periodId], references: [id])
+  pauseMinutes    Int                 @default(0)
 
   @@map("workday_history")
 }

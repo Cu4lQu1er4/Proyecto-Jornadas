@@ -8,6 +8,7 @@ export interface WorkdayHistoryCreate {
   lateArrival: boolean;
   earlyLeave: boolean;
   periodId: string;
+  pauseMinutes: number;
 }
 
 export interface WorkdayHistoryEntry extends WorkdayHistoryCreate {
