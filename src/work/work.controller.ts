@@ -190,7 +190,7 @@ export class WorkController {
   @Get('admin/employees/:id/history')
   async employeeHistory(
     @Param('id') employeeId: string,
-    @Query('periodId') periodId: string;
+    @Query('periodId') periodId: string,
   ) {
     if (!periodId) {
       throw new Error("periodId es requerido");
