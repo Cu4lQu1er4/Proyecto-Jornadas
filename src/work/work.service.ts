@@ -77,13 +77,11 @@ export class WorkService {
 
   async history(
     employeeId: string,
-    from?: Date,
-    to?: Date,
+    periodId: string,
   ) {
     return this.historyUC.execute({
       employeeId,
-      from,
-      to,
+      periodId,
     });
   }
 

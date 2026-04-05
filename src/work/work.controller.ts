@@ -102,16 +102,11 @@ export class WorkController {
   @Get("history")
   async history(
     @Req() req: Request,
-    @Query("from") from?: string,
-    @Query("to") to?: string
+    @Query("periodId") periodId: string
   ) {
     const employeeId = (req.user as any).userId;
 
-    return this.service.history(
-      employeeId,
-      from ? new Date(from) : undefined,
-      to ? new Date(to) : undefined
-    );
+    return this.service.history(employeeId, periodId);
   }
 
   @Roles(Role.ADMIN)

@@ -30,9 +30,14 @@ export class GetWorkHistory {
   async execute(cmd: GetHistoryCmd) {
     const { employeeId, periodId } = cmd;
 
-    const entries = periodId
-      ? await this.historyRepo.findByEmployeeAndPeriod(employeeId, periodId)
-      : await this.historyRepo.findByEmployee(employeeId);
+    if (!periodId) {
+      throw new Error("periodId es requerido")
+    }
+
+    const entries = await this.historyRepo.findByEmployeeAndPeriod(
+      employeeId,
+      periodId,
+    );
 
     const enriched = entries.map(entry => {
       const finalDeltaMinutes = entry.deltaMinutes;
