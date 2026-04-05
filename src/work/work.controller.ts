@@ -190,14 +190,13 @@ export class WorkController {
   @Get('admin/employees/:id/history')
   async employeeHistory(
     @Param('id') employeeId: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
+    @Query('periodId') periodId: string;
   ) {
-    return this.service.history(
-      employeeId,
-      from ? new Date(from) : undefined,
-      to ? new Date(to) : undefined,
-    );
+    if (!periodId) {
+      throw new Error("periodId es requerido");
+    }
+
+    return this.service.history(employeeId, periodId);
   }
 
   @Roles(Role.EMPLOYEE)
