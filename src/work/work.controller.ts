@@ -106,6 +106,10 @@ export class WorkController {
   ) {
     const employeeId = (req.user as any).userId;
 
+    if (!periodId) {
+      throw new Error("periodId es requerido");
+    }
+
     return this.service.history(employeeId, periodId);
   }
 
