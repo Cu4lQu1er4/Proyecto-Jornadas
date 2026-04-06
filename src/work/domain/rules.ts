@@ -26,24 +26,19 @@ export interface WorkdayRules {
 
 export type MarkType =
   | 'BREAK_START'
-  | 'BREAK_END'
-  | 'LUNCH_START'
-  | 'LUNCH_END';
+  | 'BREAK_END';
 
 export function getNextAllowedMarks(last?: MarkType): MarkType[] {
-  if (!last) return ['BREAK_START', 'LUNCH_START'];
+  if (!last) return ['BREAK_START'];
 
   switch (last) {
     case 'BREAK_START':
       return ['BREAK_END'];
 
     case 'BREAK_END':
-      return ['BREAK_START', 'LUNCH_START'];
+      return ['BREAK_START'];
 
-    case 'LUNCH_START':
-      return ['LUNCH_END'];
-
-    case 'LUNCH_END':
+    default:
       return [];
   }
 }

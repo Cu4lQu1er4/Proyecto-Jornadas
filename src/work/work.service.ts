@@ -380,25 +380,18 @@ export class WorkService {
       ? (marks[marks.length - 1].type as MarkType)
       : undefined;
 
-    const MAX_BREAK = 20;
-    const MAX_LUNCH = 60;
+    const MAX_BREAK = 30;
 
     const canStartBreak = pauses.breakMinutes < MAX_BREAK;
-    const canStartLunch = pauses.lunchMinutes < MAX_LUNCH;
 
     const allowed: MarkType[] = [];
 
     if (!last) {
       if (canStartBreak) allowed.push("BREAK_START");
-      if (canStartLunch) allowed.push("LUNCH_START");
     }
 
-    if (last === "BREAK_END") {
-      if (canStartLunch) allowed.push("LUNCH_START");
-    }
-
-    if (last === "LUNCH_START") {
-      allowed.push("LUNCH_END");
+    if (last === "BREAK_START") {
+      allowed.push("BREAK_END");
     }
 
     return { allowed };

@@ -50,7 +50,7 @@ export class EndWorkday {
     const pauses = calculatePauseMinutesDetailed(marks);
 
     const intervals = buildIntervals(startTime, now, marks);
-    
+
     const workday = new Workday(startTime, now, intervals);
 
     const days = await this.scheduleService.getScheduleForEmployee(employeeId, now);
@@ -59,19 +59,13 @@ export class EndWorkday {
 
     const totalMinutes = Math.floor((now.getTime() - startTime.getTime()) / 60000);
 
-    const workedMinutes = totalMinutes - pauses.totalPauseMinutes;
+    const MAX_BREAK = 30;
 
-    const MAX_BREAK = 20;
-    const MAX_LUNCH = 60;
+    const breakMinutes = Math.min(pauses.breakMinutes, MAX_BREAK);
 
-    const breakExcess = Math.max(0, pauses.breakMinutes - MAX_BREAK);
-    const lunchExcess = Math.max(0, pauses.lunchMinutes - MAX_LUNCH);
+    const workedMinutes = totalMinutes - breakMinutes;
 
-    const totalExcess = breakExcess + lunchExcess;
-
-    const realWorked = workedMinutes + pauses.totalPauseMinutes - totalExcess;
-
-    const deltaMinutes = realWorked - expectedMinutes;
+    const deltaMinutes = workedMinutes - expectedMinutes;
 
     const lateArrival = workday.lateArrival(this.rules);
     const earlyLeave = workday.earlyLeave(this.rules);
@@ -88,7 +82,7 @@ export class EndWorkday {
         lateArrival,
         earlyLeave,
         periodId: period.id,
-        pauseMinutes: pauses.totalPauseMinutes,
+        pauseMinutes: breakMinutes,
       },
       period.id,
     );
@@ -103,7 +97,7 @@ export class EndWorkday {
       lateArrival,
       earlyLeave,
       periodId: period.id,
-      pauseMinutes: pauses.totalPauseMinutes,
+      pauseMinutes: breakMinutes,
     };
 
     return {
