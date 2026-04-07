@@ -464,7 +464,7 @@ export class AttendanceSummaryService {
       rows.push({
         employeeId: employee.id,
         document: employee.document,
-        workedMinutes: result.totals.worked,
+        workedMinutes: result.totals.workedMinutes,
         absences: result.totals.absences,
         justified: result.totals.justified,
         status: result.totals.absences > 0 ? "IRREGULAR" : "OK",
