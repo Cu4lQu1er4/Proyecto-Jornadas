@@ -34,10 +34,11 @@ export class WorkService {
   private periodRepo: PeriodRepo;
   private listPeriodUC: ListPeriods;
   private closePeriodUC: ClosePeriod;
-  private prisma: PrismaService;
-  private attendanceService: AttendanceSummaryService;
 
-  constructor(prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private attendanceService: AttendanceSummaryService,
+  ) {
     this.prisma = prisma;
     this.repo = new WorkdayRepoDb(prisma);
     this.historyRepo = new WorkdayHistoryRepoDb(prisma);

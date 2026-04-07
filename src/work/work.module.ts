@@ -6,7 +6,6 @@ import { WorkdayRepoDb } from './infrastructure/repo.db';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PERIOD_REPO, PeriodRepoDb } from './infrastructure/period.repo.db';
-import { AttendanceSummaryService } from './application/attendance-summary.service';
 import { AttendanceSummaryController } from './infrastructure/attendance-summary.controller';
 import { EmployeeScheduleService } from './application/employee-schedule.service';
 import { ScheduleTemplateService } from './application/schedule-template.service';
@@ -38,7 +37,6 @@ import { AttendanceSummaryService } from './application/attendance-summary.servi
     AttendanceSummaryService,
     EmployeeScheduleService,
     ScheduleTemplateService,
-    AttendanceSummaryService,
   ],
   exports: [
     WORKDAY_REPO,
