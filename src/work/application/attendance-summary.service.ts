@@ -99,7 +99,7 @@ function getExpectedMinutesForDate(
   date: Date,
   scheduleDays: { weekday: number; startMinute: number; endMinute: number }[],
 ) {
-  const weekday = (date.getDay() + 6) % 7;
+  const weekday = date.getDay();
 
   const dayConfig = scheduleDays.find((d) => d.weekday === weekday);
 
@@ -120,7 +120,7 @@ export class AttendanceSummaryService {
 
     const scheduleDays = await this.scheduleService.getScheduleForEmployee(employeeId, day);
 
-    const weekday = (day.getDay() + 6) % 7;
+    const weekday = day.getDay();
     const dayConfig = scheduleDays?.find(d => d.weekday === weekday);
 
     const start = new Date(day);
