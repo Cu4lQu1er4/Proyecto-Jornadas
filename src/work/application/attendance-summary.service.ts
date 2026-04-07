@@ -206,13 +206,13 @@ export class AttendanceSummaryService {
       return {
         date: day.toISOString().slice(0, 10),
         workedMinutes: 0,
-        expectedMinutes: 0,
-        deltaMinutes: 0,
+        expectedMinutes,
+        deltaMinutes: -expectedMinutes,
         lateArrival: false,
         earlyLeave: false,
         justifiedMinutes: 0,
-        unjustifiedMinutes: 0,
-        status: "NON_OPERATIONAL_DAY",
+        unjustifiedMinutes: expectedMinutes,
+        status: "UNJUSTIFIED_ABSENCE",
         adminCases: [],
         isOpen: false,
       };
