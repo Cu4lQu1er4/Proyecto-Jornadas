@@ -99,7 +99,7 @@ function getExpectedMinutesForDate(
   date: Date,
   scheduleDays: { weekday: number; startMinute: number; endMinute: number }[],
 ) {
-  const weekday = date.getDay();
+  const weekday = (date.getDay() + 6) % 7;
 
   const dayConfig = scheduleDays.find((d) => d.weekday === weekday);
 
@@ -120,7 +120,7 @@ export class AttendanceSummaryService {
 
     const scheduleDays = await this.scheduleService.getScheduleForEmployee(employeeId, day);
 
-    const weekday = day.getDay();
+    const weekday = (day.getDay() + 6) % 7;
     const dayConfig = scheduleDays?.find(d => d.weekday === weekday);
 
     const start = new Date(day);
@@ -202,17 +202,22 @@ export class AttendanceSummaryService {
       }
     });
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const isToday = day.getTime() === today.getTime();
+
     if (histories.length === 0) {
       return {
         date: day.toISOString().slice(0, 10),
         workedMinutes: 0,
         expectedMinutes,
-        deltaMinutes: -expectedMinutes,
+        deltaMinutes: isToday ? 0 : -expectedMinutes,
         lateArrival: false,
         earlyLeave: false,
         justifiedMinutes: 0,
-        unjustifiedMinutes: expectedMinutes,
-        status: "UNJUSTIFIED_ABSENCE",
+        unjustifiedMinutes: isToday ? 0 : expectedMinutes,
+        status: isToday ? "NORMAL" : "UNJUSTIFIED_ABSENCE",
         adminCases: [],
         isOpen: false,
       };
@@ -343,8 +348,17 @@ export class AttendanceSummaryService {
     const current = new Date(period.startDate);
     current.setHours(0, 0, 0, 0);
 
-    const end = new Date(period.endDate);
-    end.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const periodEnd = new Date(period.endDate);
+    periodEnd.setHours(0, 0, 0, 0);
+
+    const end = period.closedAt
+      ? periodEnd
+      : today < periodEnd
+        ? today
+        : periodEnd;
 
     while (current <= end) {
       const ymd = current.toISOString().slice(0, 10);
@@ -375,7 +389,7 @@ export class AttendanceSummaryService {
     }
 
     const totalWorkedDays = days.filter(d =>
-      d.workedMinutes > 0
+      d.workedMinutes > 0 || d.isOpen
     ).length;
 
     const totalAbsenceDays = days.filter(d =>
