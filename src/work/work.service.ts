@@ -20,6 +20,7 @@ import { CompleteProfileDto } from "./application/complete-profile.dto";
 import { getNextAllowedMarks } from "./domain/rules";
 import { MarkType } from "./domain/rules";
 import { calculatePauseMinutesDetailed } from "./domain/calc";
+import { AttendanceSummaryService } from "./application/attendance-summary.service";
 
 @Injectable()
 export class WorkService {
@@ -34,6 +35,7 @@ export class WorkService {
   private listPeriodUC: ListPeriods;
   private closePeriodUC: ClosePeriod;
   private prisma: PrismaService;
+  private attendanceService: AttendanceSummaryService;
 
   constructor(prisma: PrismaService) {
     this.prisma = prisma;
@@ -143,56 +145,35 @@ export class WorkService {
 
   async listEmployeePeriods(employeeId: string) {
     const periods = await this.prisma.workPeriod.findMany({
-      where: {
-        histories: {
-          some: {
-            employeeId,
-          },
-        },
-      },
       orderBy: [
         { year: 'desc' },
         { month: 'desc' },
         { half: 'desc' },
       ],
-      include: {
-        histories: {
-          where: { employeeId },
-          select: {
-            workedMinutes: true,
-            expectedMinutes: true,
-            deltaMinutes: true,
-          },
-        },
-      },
     });
 
-    return periods.map((p) => {
-      const totalWorked = p.histories.reduce(
-        (acc, w) => acc + w.workedMinutes,
-        0
-      );
+    return Promise.all(
+      periods.map(async (p) => {
+        const result = await this.attendanceService.getPeriod(
+          employeeId,
+          p.id
+        );
 
-      const totalExpected = p.histories.reduce(
-        (acc, w) => acc + w.expectedMinutes,
-        0
-      );
-
-      const totalDelta = p.histories.reduce(
-        (acc, w) => acc + w.deltaMinutes,
-        0
-      );
-
-      return {
-        id: p.id,
-        startDate: p.startDate,
-        endDate: p.endDate,
-        closedAt: p.closedAt,
-        totalWorked,
-        totalExpected,
-        totalDelta,
-      };
-    });
+        return {
+          id: p.id,
+          startDate: p.startDate,
+          endDate: p.endDate,
+          closedAt: p.closedAt,
+          workedDays: result.totals.workedDays,
+          absences: result.totals.absences,
+          justified: result.totals.justified,
+          partial: result.totals.partial,
+          totalWorkedMinutes: result.totals.workedMinutes,
+          totalExpectedMinutes: result.totals.expectedMinutes,
+          totalDeltaMinutes: result.totals.rawDelta,
+        };
+      })
+    );
   }
 
   async listEmployees() {
