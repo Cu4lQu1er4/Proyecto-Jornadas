@@ -202,7 +202,22 @@ export class AttendanceSummaryService {
       }
     });
 
-    
+    if (histories.length === 0) {
+      return {
+        date: day.toISOString().slice(0, 10),
+        workedMinutes: 0,
+        expectedMinutes: 0,
+        deltaMinutes: 0,
+        lateArrival: false,
+        earlyLeave: false,
+        justifiedMinutes: 0,
+        unjustifiedMinutes: 0,
+        status: "NON_OPERATIONAL_DAY",
+        adminCases: [],
+        isOpen: false,
+      };
+    }
+
     const workedMinutes = histories.reduce(
       (sum, h) => sum + h.workedMinutes,
       0
@@ -320,9 +335,11 @@ export class AttendanceSummaryService {
     const period = await this.prisma.workPeriod.findUnique({
       where: { id: periodId },
     });
+
     if (!period) throw new Error("Periodo no existe");
 
     const days: AttendanceDaySummary[] = [];
+
     const current = new Date(period.startDate);
     current.setHours(0, 0, 0, 0);
 
@@ -331,13 +348,18 @@ export class AttendanceSummaryService {
 
     while (current <= end) {
       const ymd = current.toISOString().slice(0, 10);
-      days.push(await this.getDay(employeeId, ymd));
+      const day = await this.getDay(employeeId, ymd);
+
+      if (!day.isOpen) {
+        days.push(day);
+      }
+
       current.setDate(current.getDate() + 1);
     }
 
-    const totalWorked = days.reduce((a, d) => a + d.workedMinutes, 0);
-    let totalExpected = 0;
+    const totalWorkedMinutes = days.reduce((a, d) => a + d.workedMinutes, 0);
 
+    let totalExpectedMinutes = 0;
     for (const day of days) {
       const dateObj = parseYmdLocal(day.date);
 
@@ -346,24 +368,50 @@ export class AttendanceSummaryService {
         dateObj,
       );
 
-      totalExpected += getExpectedMinutesForDate(dateObj, scheduleDays ?? []);
+      totalExpectedMinutes += getExpectedMinutesForDate(
+        dateObj,
+        scheduleDays ?? [],
+      );
     }
-    const totalJustified = days.reduce((a, d) => a + d.justifiedMinutes, 0);
-    const totalUnjustified = days.reduce((a, d) => a + d.unjustifiedMinutes, 0);
 
-    const rawDelta = totalWorked - totalExpected;
-    const netBalance = totalWorked + totalJustified - totalExpected;
+    const totalWorkedDays = days.filter(d =>
+      d.workedMinutes > 0
+    ).length;
 
-    const isIrregular = totalUnjustified > 0;
+    const totalAbsenceDays = days.filter(d =>
+      d.expectedMinutes > 0 &&
+      d.workedMinutes === 0 &&
+      d.unjustifiedMinutes > 0
+    ).length;
+
+    const totalJustifiedDays = days.filter(d =>
+      d.justifiedMinutes >= d.expectedMinutes &&
+      d.expectedMinutes > 0
+    ).length;
+
+    const totalPartialDays = days.filter(d =>
+      d.workedMinutes > 0 &&
+      d.unjustifiedMinutes > 0
+    ).length;
+
+    const rawDelta = totalWorkedMinutes - totalExpectedMinutes;
+    const netBalance =
+      totalWorkedMinutes +
+      days.reduce((a, d) => a + d.justifiedMinutes, 0) -
+      totalExpectedMinutes;
+
+    const isIrregular = totalAbsenceDays > 0 || totalPartialDays > 0;
 
     return {
       period,
       days,
       totals: {
-        worked: totalWorked,
-        expected: totalExpected,
-        justified: totalJustified,
-        unjustified: totalUnjustified,
+        workedDays: totalWorkedDays,
+        absences: totalAbsenceDays,
+        justified: totalJustifiedDays,
+        partial: totalPartialDays,
+        workedMinutes: totalWorkedMinutes,
+        expectedMinutes: totalExpectedMinutes,
         rawDelta,
         netBalance,
         isIrregular,
@@ -417,9 +465,9 @@ export class AttendanceSummaryService {
         employeeId: employee.id,
         document: employee.document,
         workedMinutes: result.totals.worked,
-        absences: result.totals.unjustified,
+        absences: result.totals.absences,
         justified: result.totals.justified,
-        status: result.totals.unjustified > 0 ? "IRREGULAR" : "OK",
+        status: result.totals.absences > 0 ? "IRREGULAR" : "OK",
       });
     }
 
