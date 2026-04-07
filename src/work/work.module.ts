@@ -12,6 +12,7 @@ import { EmployeeScheduleService } from './application/employee-schedule.service
 import { ScheduleTemplateService } from './application/schedule-template.service';
 import { ScheduleTemplateController } from './infrastructure/schedule-template.controller';
 import { EmployeeScheduleController } from './infrastructure/employee-schedule.controller';
+import { AttendanceSummaryService } from './application/attendance-summary.service';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { EmployeeScheduleController } from './infrastructure/employee-schedule.c
     AttendanceSummaryService,
     EmployeeScheduleService,
     ScheduleTemplateService,
+    AttendanceSummaryService,
   ],
   exports: [
     WORKDAY_REPO,
