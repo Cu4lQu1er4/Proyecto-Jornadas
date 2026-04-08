@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
 import { AdminCaseStatus, AdminCaseType } from "@prisma/client";
 import { EmployeeScheduleService } from "./employee-schedule.service";
+import { CurrentPointers } from "pdfjs-dist/types/src/display/editor/tools";
 
 export type AttendanceDaySummary = {
   date: string;
@@ -361,7 +362,8 @@ export class AttendanceSummaryService {
         : periodEnd;
 
     while (current <= end) {
-      const ymd = current.toISOString().slice(0, 10);
+      const ymd = current.toLocaleDateString("en-CA");
+
       const day = await this.getDay(employeeId, ymd);
 
       if (!day.isOpen) {
@@ -371,22 +373,25 @@ export class AttendanceSummaryService {
       current.setDate(current.getDate() + 1);
     }
 
-    const totalWorkedMinutes = days.reduce((a, d) => a + d.workedMinutes, 0);
+    const totalWorkedMinutes = days.reduce(
+      (a, d) => a + d.workedMinutes,
+      0
+    );
 
-    let totalExpectedMinutes = 0;
-    for (const day of days) {
-      const dateObj = parseYmdLocal(day.date);
+    const totalExpectedMinutes = days.reduce(
+      (a, d) => a + d.expectedMinutes,
+      0
+    );
 
-      const scheduleDays = await this.scheduleService.getScheduleForEmployee(
-        employeeId,
-        dateObj,
-      );
+    const totalJustifiedMinutes = days.reduce(
+      (a, d) => a + d.justifiedMinutes,
+      0
+    );
 
-      totalExpectedMinutes += getExpectedMinutesForDate(
-        dateObj,
-        scheduleDays ?? [],
-      );
-    }
+    const totalUnjustifiedMinutes = days.reduce(
+      (a, d) => a + d.unjustifiedMinutes,
+      0
+    );
 
     const totalWorkedDays = days.filter(d =>
       d.workedMinutes > 0 || d.isOpen
@@ -408,13 +413,15 @@ export class AttendanceSummaryService {
       d.unjustifiedMinutes > 0
     ).length;
 
-    const rawDelta = totalWorkedMinutes - totalExpectedMinutes;
+    const rawDelta = totalWorkedDays - totalExpectedMinutes;
+
     const netBalance =
       totalWorkedMinutes +
-      days.reduce((a, d) => a + d.justifiedMinutes, 0) -
+      totalJustifiedMinutes -
       totalExpectedMinutes;
 
-    const isIrregular = totalAbsenceDays > 0 || totalPartialDays > 0;
+    const isIrregular =
+      totalAbsenceDays > 0 || totalPartialDays > 0;
 
     return {
       period,
@@ -426,6 +433,8 @@ export class AttendanceSummaryService {
         partial: totalPartialDays,
         workedMinutes: totalWorkedMinutes,
         expectedMinutes: totalExpectedMinutes,
+        justifiedMinutes: totalJustifiedMinutes,
+        unjustifiedMinutes: totalUnjustifiedMinutes,
         rawDelta,
         netBalance,
         isIrregular,
