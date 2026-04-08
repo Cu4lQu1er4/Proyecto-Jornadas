@@ -10,6 +10,7 @@ import {
   UseGuards,
   Patch,
   Param,
+  Delete,
 } from "@nestjs/common";
 import type { Request } from "express";
 import { WorkService } from "./work.service";
@@ -264,5 +265,10 @@ export class WorkController {
   @Roles(Role.ADMIN)
   async getLiveWorkdays() {
     return this.service.getLiveWorkdays();
+  }
+
+  @Delete('admin/employees/:id')
+  deleteEmployee(@Param('id') id: string) {
+    return this.service.deleteEmployee(id);
   }
 }

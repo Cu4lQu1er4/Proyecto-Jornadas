@@ -378,4 +378,60 @@ export class WorkService {
 
     return { allowed };
   }
+
+  async deleteEmployee(userId: string) {
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) throw new Error("Usuario no existe");
+
+    if (user.role === "ADMIN") {
+      throw new Error("No puedes eliminar un admin");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.workdayOpen.deleteMany({
+        where: { employeeId: userId },
+      });
+
+      await tx.workdayMark.deleteMany({
+        where: { employeeId: userId },
+      });
+
+      const histories = await tx.workdayHistory.findMany({
+        where: { employeeId: userId },
+        select: { id: true },
+      });
+
+      const historyIds = histories.map(h => h.id);
+
+      if (historyIds.length > 0) {
+        await tx.workdayAdjustment.deleteMany({
+          where: {
+            historyId: { in: historyIds },
+          },
+        });
+      }
+
+      await tx.workdayHistory.deleteMany({
+        where: { employeeId: userId },
+      });
+
+      await tx.employeeScheduleAssignment.deleteMany({
+        where: { employeeId: userId },
+      });
+
+      await tx.adminCase.deleteMany({
+        where: { employeeId: userId },
+      });
+
+      await tx.user.delete({
+        where: { id: userId },
+      });
+
+      return { success: true };
+    });
+  }
 }
