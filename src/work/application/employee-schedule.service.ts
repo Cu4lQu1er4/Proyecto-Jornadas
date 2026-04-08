@@ -7,7 +7,7 @@ export class EmployeeScheduleService {
     private readonly prisma: PrismaService
   ) {}
 
-  async getScheculeForEmployee(employeeId: string, date: Date) {
+  async getScheduleForEmployee(employeeId: string, date: Date) {
     const dayStart = new Date(date);
     dayStart.setHours(0, 0, 0, 0);
 
