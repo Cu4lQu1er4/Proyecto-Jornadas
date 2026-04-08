@@ -7,14 +7,20 @@ export class EmployeeScheduleService {
     private readonly prisma: PrismaService
   ) {}
 
-  async getScheduleForEmployee(employeeId: string, date: Date) {
+  async getScheculeForEmployee(employeeId: string, date: Date) {
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
     const assignment = await this.prisma.employeeScheduleAssignment.findFirst({
       where: {
         employeeId,
-        effectiveFrom: { lte: date },
-        OR: [
+        effectiveFrom: { lte: dayEnd },
+        OR : [
           { effectiveTo: null },
-          { effectiveTo: { gte: date } },
+          { effectiveTo: { gte: dayStart } },
         ],
       },
       include: {
