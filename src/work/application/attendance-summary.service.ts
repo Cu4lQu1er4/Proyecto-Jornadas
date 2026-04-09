@@ -173,7 +173,7 @@ export class AttendanceSummaryService {
         const hours = Math.floor(dayConfig.startMinute / 60);
         const minutes = dayConfig.startMinute % 60;
         
-        expectedStart.setUTCHours(hours + 5, minutes, 0, 0);
+        expectedStart.setHours(hours, minutes, 0, 0);
         
         const lateArrivalLive = openStart.getTime() > expectedStart.getTime();
         
