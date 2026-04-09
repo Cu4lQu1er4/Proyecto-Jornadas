@@ -63,6 +63,13 @@ function scopesOverlap(
   return false;
 }
 
+function formatLocalYmd(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 async function logSystemDecisionOnce(
   prisma: PrismaService,
   params: {
@@ -75,7 +82,7 @@ async function logSystemDecisionOnce(
   const exists = await prisma.auditEvent.findFirst({
     where: {
       entityType: "ATTENDANCE_DAY",
-      entityId: `${params.employeeId}:${params.date.toISOString().slice(0, 10)}`,
+      entityId: `${params.employeeId}:${formatLocalYmd(params.date)}`,
       action: params.status,
     },
   });
@@ -85,12 +92,12 @@ async function logSystemDecisionOnce(
   await prisma.auditEvent.create({
     data: {
       entityType: "ATTENDANCE_DAY",
-      entityId: `${params.employeeId}:${params.date.toISOString().slice(0, 10)}`,
+      entityId: `${params.employeeId}:${formatLocalYmd(params.date)}`,
       action: params.status,
       performedBy: "SYSTEM",
       metadata: {
         reason: params.reason,
-        date: params.date.toISOString().slice(0, 10),
+        date: formatLocalYmd(params.date),
       },
     },
   });
@@ -132,7 +139,7 @@ export class AttendanceSummaryService {
 
     if (!dayConfig) {
       return {
-        date: day.toISOString().slice(0, 10),
+        date: formatLocalYmd(day),
         workedMinutes: 0,
         expectedMinutes: 0,
         deltaMinutes: 0,
@@ -178,7 +185,7 @@ export class AttendanceSummaryService {
         const lateArrivalLive = openStart.getTime() > expectedStart.getTime();
         
         return {
-          date: day.toISOString().slice(0, 10),
+          date: formatLocalYmd(day),
           workedMinutes: workedMinutesLive,
           expectedMinutes,
           deltaMinutes: deltaLive,
@@ -210,7 +217,7 @@ export class AttendanceSummaryService {
 
     if (histories.length === 0) {
       return {
-        date: day.toISOString().slice(0, 10),
+        date: formatLocalYmd(day),
         workedMinutes: 0,
         expectedMinutes,
         deltaMinutes: isToday ? 0 : -expectedMinutes,
@@ -318,7 +325,7 @@ export class AttendanceSummaryService {
     }
 
     return {
-      date: day.toISOString().slice(0, 10),
+      date: formatLocalYmd(day),
       workedMinutes,
       expectedMinutes,
       deltaMinutes,
@@ -362,13 +369,14 @@ export class AttendanceSummaryService {
         : periodEnd;
 
     while (current <= end) {
-      const ymd = current.toLocaleDateString("en-CA");
+      const ymd = formatLocalYmd(current);
 
       const day = await this.getDay(employeeId, ymd);
 
-      if (!day.isOpen) {
-        days.push(day);
-      }
+      days.push({
+        ...day,
+        deltaMinutes: day.isOpen ? 0 : day.deltaMinutes
+      });
 
       current.setDate(current.getDate() + 1);
     }
@@ -413,7 +421,7 @@ export class AttendanceSummaryService {
       d.unjustifiedMinutes > 0
     ).length;
 
-    const rawDelta = totalWorkedDays - totalExpectedMinutes;
+    const rawDelta = totalWorkedMinutes - totalExpectedMinutes;
 
     const netBalance =
       totalWorkedMinutes +
