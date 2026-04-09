@@ -179,7 +179,6 @@ export class WorkService {
 
   async listEmployees() {
     return this.prisma.user.findMany({
-      where: { role: 'EMPLOYEE' },
       select: {
         id: true,
         document: true,
