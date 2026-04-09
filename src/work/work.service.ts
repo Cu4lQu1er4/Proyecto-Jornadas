@@ -214,12 +214,22 @@ export class WorkService {
   async createEmployee(dto: CreateEmployeeDto, adminId: string) {
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
+    if (dto.role === "ADMIN") {
+      const admin = await this.prisma.user.findUnique({
+        where: { id: adminId },
+      });
+
+      if (!admin || admin.role !== "ADMIN") {
+        throw new Error ("No autorizado para crear administradores");
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
           document: dto.document,
           passwordHash,
-          role: "EMPLOYEE",
+          role: dto.role ?? "EMPLOYEE",
           active: true,
           mustChangePassword: true,
           profileCompleted: false,
@@ -233,13 +243,15 @@ export class WorkService {
         },
       });
 
-      await tx.employeeScheduleAssignment.create({
-        data: {
-          employeeId: user.id,
-          scheduleTemplateId: dto.scheduleTemplateId,
-          effectiveFrom: new Date(),
-        },
-      });
+      if ((dto.role ?? "EMPLOYEE") === "EMPLOYEE") {
+        await tx.employeeScheduleAssignment.create({
+          data: {
+            employeeId: user.id,
+            scheduleTemplateId: dto.scheduleTemplateId,
+            effectiveFrom: new Date(),
+          },
+        });
+      }
 
       return user;
     });

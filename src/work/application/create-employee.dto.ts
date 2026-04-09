@@ -1,4 +1,5 @@
-import { IsString, MinLength } from "class-validator";
+import { IsString, MinLength, IsEnum, IsOptional } from "class-validator";
+import { Role } from "src/auth/roles.enum";
 
 export class CreateEmployeeDto {
   @IsString()
@@ -10,4 +11,8 @@ export class CreateEmployeeDto {
 
   @IsString()
   scheduleTemplateId!: string;
+
+  @IsOptional()
+  @IsEnum(Role)
+  role?: Role;
 }

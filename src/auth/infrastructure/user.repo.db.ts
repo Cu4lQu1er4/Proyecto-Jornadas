@@ -51,10 +51,13 @@ export class UserRepoDb implements UserRepo {
   async create(data: {
     document: string;
     passwordHash: string;
-    role: string;
+    role?: Role;
   }): Promise<User> {
     const row = await this.prisma.user.create({
-      data,
+      data: {
+        ...data,
+        role: data.role ?? Role.EMPLOYEE,
+      },
     });
 
     return this.mapRow(row);
