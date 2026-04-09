@@ -1,3 +1,4 @@
+import { Role } from "../roles.enum";
 import { User } from "./user";
 
 export const USER_REPO = Symbol('USER_REPO');
@@ -9,7 +10,7 @@ export interface UserRepo {
   create(data: {
     document: string;
     passwordHash: string;
-    role: string;
+    role?: Role;
   }): Promise<User>;
   deactivate(id: string): Promise<void>;
 }
