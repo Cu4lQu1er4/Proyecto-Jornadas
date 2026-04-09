@@ -481,9 +481,11 @@ export class AttendanceSummaryService {
     type ReportRow = {
       employeeId: string;
       document: string;
-      workedMinutes: number;
+      workedDays: number;
       absences: number;
       justified: number;
+      partial: number;
+      workedMinutes: number;
       status: string;
     };
 
@@ -495,10 +497,15 @@ export class AttendanceSummaryService {
       rows.push({
         employeeId: employee.id,
         document: employee.document,
-        workedMinutes: result.totals.workedMinutes,
+        workedDays: result.totals.workedDays,
         absences: result.totals.absences,
         justified: result.totals.justified,
-        status: result.totals.absences > 0 ? "IRREGULAR" : "OK",
+        partial: result.totals.partial,
+        workedMinutes: result.totals.workedMinutes,
+        status:
+          result.totals.absences > 0 || result.totals.partial > 0
+            ? "IRREGULAR"
+            : "OK",
       });
     }
 
