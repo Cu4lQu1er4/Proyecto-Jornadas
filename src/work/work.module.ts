@@ -12,6 +12,7 @@ import { ScheduleTemplateService } from './application/schedule-template.service
 import { ScheduleTemplateController } from './infrastructure/schedule-template.controller';
 import { EmployeeScheduleController } from './infrastructure/employee-schedule.controller';
 import { AttendanceSummaryService } from './application/attendance-summary.service';
+import { EmployeeScheduleSelfController } from './infrastructure/employee-schedule.self.controller';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AttendanceSummaryService } from './application/attendance-summary.servi
     AttendanceSummaryController,
     ScheduleTemplateController,
     EmployeeScheduleController,
+    EmployeeScheduleSelfController,
   ],
   providers: [
     {
