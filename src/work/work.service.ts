@@ -189,23 +189,25 @@ export class WorkService {
         lastName: true,
         email: true,
         phone: true,
-        _count: {
-          select: {
-            adminCases: {
-              where: {
-                status: "PENDING",
-              },
-            },
-          },
-        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    return employees.map(e => ({
-      ...e,
-      pendingCases: e._count_adminCases,
-    }));
+    return Promise.all(
+      employees.map(async (e) => {
+        const pendingCases = await this.prisma.adminCase.count({
+          where: {
+            employeeId: e.id,
+            status: "PENDING",
+          },
+        });
+
+        return {
+          ...e,
+          pendingCases,
+        };
+      })
+    );
   }
 
   async workdayStatus(employeeId: string) {
