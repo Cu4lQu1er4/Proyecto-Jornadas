@@ -72,8 +72,8 @@ export class AuthController {
 
       res.cookie('access_token', accessToken, {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: isProd,
+        sameSite: 'none',
+        secure: true,
         domain: isProd ? '.nerpelsas.com' : 'localhost',
         path: '/',
         maxAge: 1000 * 60 * 15,
@@ -81,8 +81,8 @@ export class AuthController {
 
       res.cookie("refresh_token", refreshToken, {
         httpOnly: true,
-        sameSite: "lax",
-        secure: isProd,
+        sameSite: "none",
+        secure: true,
         domain: isProd ? ".nerpelsas.com" : "localhost",
         path: "/",
         maxAge: 1000 * 60 * 60 * 24 * 30,
@@ -135,7 +135,7 @@ export class AuthController {
 
     res.cookie("access_token", accessToken, {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "none",
       secure: true,
       domain: ".nerpelsas.com",
       path: "/",
@@ -151,16 +151,16 @@ export class AuthController {
 
     res.clearCookie('access_token', {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: isProd,
+      sameSite: 'none',
+      secure: true,
       domain: isProd ? '.nerpelsas.com' : 'localhost',
       path: '/',
     });
 
     res.clearCookie("refresh_token", {
       httpOnly: true,
-      sameSite: "lax",
-      secure: isProd,
+      sameSite: "none",
+      secure: true,
       domain: isProd ? ".nerpelsas.com" : "localhost",
       path: "/",
     });
@@ -295,8 +295,8 @@ export class AuthController {
 
     res.cookie("access_token", token, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: false,
+      sameSite: "none",
+      secure: true,
       maxAge: 1000 * 60 * 10
     });
 
