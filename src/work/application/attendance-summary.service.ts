@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
 import { AdminCaseStatus, AdminCaseType } from "@prisma/client";
 import { EmployeeScheduleService } from "./employee-schedule.service";
-import { CurrentPointers } from "pdfjs-dist/types/src/display/editor/tools";
 
 export type AttendanceDaySummary = {
   date: string;
@@ -206,7 +205,7 @@ export class AttendanceSummaryService {
         startTime: { gte: start, lt: end },
       },
       orderBy: {
-        startTime: "desc",
+        startTime: "asc",
       }
     });
 
@@ -244,6 +243,18 @@ export class AttendanceSummaryService {
     const realWorked = workedMinutes + pauseMinutes;
 
     const deltaMinutes = realWorked - expectedMinutes;
+
+    const firstMark = histories[0]?.startTime;
+
+    let lateArrival = false;
+
+    if (firstMark) {
+      const expectedStart = new Date(start);
+      const hours = Math.floor(dayConfig.startMinute / 60);
+      const minutes = dayConfig.startMinute % 60;
+      expectedStart.setHours(hours, minutes, 0, 0);
+      lateArrival = firstMark.getTime() > expectedStart.getTime();
+    }
 
     const mainHistory =
       histories.find(h => h.workedMinutes > 0) ??
@@ -329,7 +340,7 @@ export class AttendanceSummaryService {
       workedMinutes,
       expectedMinutes,
       deltaMinutes,
-      lateArrival: mainHistory?.lateArrival ?? false,
+      lateArrival,
       earlyLeave: mainHistory?.earlyLeave ?? false,
       justifiedMinutes,
       unjustifiedMinutes,
