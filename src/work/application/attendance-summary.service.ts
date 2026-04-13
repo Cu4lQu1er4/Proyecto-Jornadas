@@ -206,7 +206,7 @@ export class AttendanceSummaryService {
         startTime: { gte: start, lt: end },
       },
       orderBy: {
-        startTime: "asc",
+        startTime: "desc",
       }
     });
 
