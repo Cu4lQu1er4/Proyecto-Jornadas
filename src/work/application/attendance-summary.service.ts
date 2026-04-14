@@ -487,11 +487,18 @@ export class AttendanceSummaryService {
         role: "EMPLOYEE",
         ...(document ? { document } : {}),
       },
+      select: {
+        id: true,
+        document: true,
+        firstName: true,
+        lastName: true,
+      },
     });
 
     type ReportRow = {
       employeeId: string;
       document: string;
+      name: string;
       workedDays: number;
       absences: number;
       justified: number;
@@ -508,6 +515,7 @@ export class AttendanceSummaryService {
       rows.push({
         employeeId: employee.id,
         document: employee.document,
+        name: `${employee.firstName ?? ""} ${employee.lastName ?? ""}`.trim(),
         workedDays: result.totals.workedDays,
         absences: result.totals.absences,
         justified: result.totals.justified,
