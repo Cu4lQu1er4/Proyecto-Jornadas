@@ -69,6 +69,31 @@ function formatLocalYmd(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function getLocalToday() {
+  const now = new Date();
+
+  const local = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+
+  return local;
+}
+
+function toUtcRange(localDate: Date) {
+  const start = new Date(localDate);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  return {
+    start: new Date(start.getTime() + start.getTimezoneOffset() * 60000),
+    end: new Date(end.getTime() + end.getTimezoneOffset() * 60000),
+  };
+}
+
 async function logSystemDecisionOnce(
   prisma: PrismaService,
   params: {
@@ -199,6 +224,15 @@ export class AttendanceSummaryService {
       }
     }
     
+    const { start: utcStart, end: utcEnd } = toUtcRange(day);
+
+    const histories = await this.prisma.workdayHistory.findMany({
+      where: {
+        employeeId,
+        startTime: { gte: utcStart, lt: utcEnd },
+      },
+    })
+
     const histories = await this.prisma.workdayHistory.findMany({
       where: {
         employeeId,
@@ -209,8 +243,7 @@ export class AttendanceSummaryService {
       }
     });
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getLocalToday();
 
     const isToday = day.getTime() === today.getTime();
 
@@ -263,8 +296,8 @@ export class AttendanceSummaryService {
     const scopes = await this.prisma.adminCaseScope.findMany({
       where: {
         date: {
-          gte: start,
-          lt: end,
+          gte: utcStart,
+          lt: utcEnd,
         },
         adminCase: {
           employeeId,
@@ -367,8 +400,7 @@ export class AttendanceSummaryService {
     const current = new Date(period.startDate);
     current.setHours(0, 0, 0, 0);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getLocalToday();
 
     const periodEnd = new Date(period.endDate);
     periodEnd.setHours(0, 0, 0, 0);
