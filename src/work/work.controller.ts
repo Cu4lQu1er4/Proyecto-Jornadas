@@ -11,6 +11,7 @@ import {
   Patch,
   Param,
   Delete,
+  Res,
 } from "@nestjs/common";
 import type { Request } from "express";
 import { WorkService } from "./work.service";
@@ -280,7 +281,7 @@ export class WorkController {
     @Param("periodId") periodId: string,
     @Res() res: Response,
   ) {
-    const pdfBuffer = await this.service.generatePdf(employeeId, perioId);
+    const pdfBuffer = await this.service.generatePdf(employeeId, periodId);
 
     res.set({
       "Content-Type": "application/pdf",
