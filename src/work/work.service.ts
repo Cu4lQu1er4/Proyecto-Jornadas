@@ -38,10 +38,12 @@ function formatDate(date: Date | string) {
 
 function formatTime(date?: Date | null) {
   if (!date) return "--";
-  const d = new Date(date);
-  return d.toLocaleTimeString("es-CO", {
+
+  return new Date(date).toLocaleTimeString("es-CO", {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Bogota",
   });
 }
 
@@ -485,8 +487,8 @@ export class WorkService {
     });
   }
 
-  async generatePdf(employeeId: string, pediodid: string): Promise<Buffer> {
-    const result = await this.attendanceService.getPeriod(employeeId, pediodid);
+  async generatePdf(employeeId: string, periodId: string): Promise<Buffer> {
+    const result = await this.attendanceService.getPeriod(employeeId, periodId);
 
     const employee = await this.prisma.user.findUnique({
       where: { id: employeeId },
@@ -511,14 +513,12 @@ export class WorkService {
 
     try {
       const logoPath = join(process.cwd(), "assets", "logo.png");
-
       doc.image(logoPath, 40, 40, { width: 80 });
     } catch (e) {
-      console.log("No se pudo cargar logo");
+      console.log("No se pudo cargar el logo");
     }
 
     doc.fontSize(16).text("REPORTE DE ASISTENCIA", { align: "center" });
-
     doc.moveDown();
 
     doc.fontSize(10);
@@ -548,36 +548,54 @@ export class WorkService {
 
     doc.font("Helvetica");
 
-    for (const d of result.days) {
-      const startOfDay = new Date(d.date);
-      const endOfDay = new Date(startOfDay);
-      endOfDay.setDate(endOfDay.getDate() + 1);
-
-      const histories = await this.prisma.workdayHistory.findMany({
-        where: {
-          employeeId,
-          startTime: {
-            gte: startOfDay,
-            lt: endOfDay,
-          },
+    const histories = await this.prisma.workdayHistory.findMany({
+      where: {
+        employeeId,
+        startTime: {
+          gte: result.period.startDate,
+          lt: result.period.endDate,
         },
-        orderBy: { startTime: "asc" },
-      });
+      },
+      orderBy: { startTime: "asc" },
+    });
 
-      if (histories.length === 0) continue;
+    const map = new Map<string, typeof histories>();
 
-      const start = histories[0]?.startTime;
-      const end = histories[histories.length - 1]?.endTime;
+    for (const h of histories) {
+      const key = formatDate(h.startTime);
+
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+
+      map.get(key)!.push(h);
+    }
+
+    for (const d of result.days) {
+      const date = formatDate(d.date);
+
+      const dayHistories = map.get(date) ?? [];
+
+      const start = dayHistories[0]?.startTime ?? null;
+      const end = dayHistories[dayHistories.length - 1]?.endTime ?? null;
 
       const worked = formatMinutes(d.workedMinutes);
 
-      doc.text(formatDate(d.date), 40);
+      if (d.workedMinutes === 0) {
+        doc.fillColor("gray");
+      } else {
+        doc.fillColor("black");
+      }
+
+      doc.text(date, 40);
       doc.text(formatTime(start), 150);
       doc.text(formatTime(end), 250);
       doc.text(worked, 350);
 
       doc.moveDown(0.5);
     }
+
+    doc.fillColor("black");
 
     doc.end();
 
