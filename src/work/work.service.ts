@@ -23,6 +23,7 @@ import { calculatePauseMinutesDetailed } from "./domain/calc";
 import { AttendanceSummaryService } from "./application/attendance-summary.service";
 import PDFDocument from "pdfkit";
 import { PassThrough } from "stream";
+import { join } from "path";
 
 function formatMinutes(mins: number) {
   const h = Math.floor(mins / 60);
@@ -509,9 +510,11 @@ export class WorkService {
     stream.on("data", (chunk) => buffers.push(chunk));
 
     try {
-      doc.image("assets/logo.png", 40, 40, { with: 80 });
-    } catch {
+      const logoPath = join(process.cwd(), "assets", "logo.png");
 
+      doc.image(logoPath, 40, 40, { width: 80 });
+    } catch (e) {
+      console.log("No se pudo cargar logo");
     }
 
     doc.fontSize(16).text("REPORTE DE ASISTENCIA", { align: "center" });
@@ -578,7 +581,7 @@ export class WorkService {
 
     doc.end();
 
-    return await new Promise<Bufferr>((resolve) => {
+    return await new Promise<Buffer>((resolve) => {
       stream.on("end", () => {
         resolve(Buffer.concat(buffers));
       });
