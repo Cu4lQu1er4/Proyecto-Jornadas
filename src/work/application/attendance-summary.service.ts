@@ -231,16 +231,6 @@ export class AttendanceSummaryService {
         employeeId,
         startTime: { gte: utcStart, lt: utcEnd },
       },
-    })
-
-    const histories = await this.prisma.workdayHistory.findMany({
-      where: {
-        employeeId,
-        startTime: { gte: start, lt: end },
-      },
-      orderBy: {
-        startTime: "asc",
-      }
     });
 
     const today = getLocalToday();
