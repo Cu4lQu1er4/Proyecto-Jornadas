@@ -395,7 +395,7 @@ export class AttendanceSummaryService {
 
     const days: AttendanceDaySummary[] = [];
 
-    const current = new Date(period.startDate);
+    let current = new Date(period.startDate);
     current.setHours(0, 0, 0, 0);
 
     const today = getLocalToday();
