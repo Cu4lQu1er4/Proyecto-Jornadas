@@ -274,20 +274,35 @@ export class WorkController {
   }
 
   @Get("pdf/:employeeId/:periodId")
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   async downloadPdf(
     @Param("employeeId") employeeId: string,
     @Param("periodId") periodId: string,
-    @Res({ passthrough: true }) res: Response,
+    @Res() res: Response,
   ) {
     const pdfBuffer = await this.service.generatePdf(employeeId, periodId);
 
-    res.set({
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename=reporte-${employeeId}.pdf`,
+    const employee = await this.service["prisma"].user.findUnique({
+      where: { id: employeeId },
+      select: {
+        firstName: true,
+        lastName: true,
+        document: true,
+      },
     });
 
-    res.send(pdfBuffer);
+    const name = `${employee?.firstName ?? ""} ${employee?.lastName ?? ""}`.trim();
+
+    const safeName = (name || employee?.document || "empleado")
+      .replace(/\s+/g,"_")
+      .toLowerCase();
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=reporte-${safeName}.pdf`
+    );
+
+    res.end(pdfBuffer);
   }
 }

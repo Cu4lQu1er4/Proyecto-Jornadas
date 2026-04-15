@@ -484,8 +484,8 @@ export class WorkService {
     });
   }
 
-  async generatePdf(employeeId: string, periodId: string): Promise<Buffer> {
-    const result = await this.attendanceService.getPeriod(employeeId, periodId);
+  async generatePdf(employeeId: string, pediodid: string): Promise<Buffer> {
+    const result = await this.attendanceService.getPeriod(employeeId, pediodid);
 
     const employee = await this.prisma.user.findUnique({
       where: { id: employeeId },
@@ -508,7 +508,14 @@ export class WorkService {
 
     stream.on("data", (chunk) => buffers.push(chunk));
 
+    try {
+      doc.image("assets/logo.png", 40, 40, { with: 80 });
+    } catch {
+
+    }
+
     doc.fontSize(16).text("REPORTE DE ASISTENCIA", { align: "center" });
+
     doc.moveDown();
 
     doc.fontSize(10);
@@ -517,41 +524,53 @@ export class WorkService {
     doc.text(
       `Periodo: ${formatDate(result.period.startDate)} - ${formatDate(result.period.endDate)}`
     );
-    doc.text(`Generando: ${formatDate(new Date())}`);
-    doc.moveDown();
+    doc.text(`Generado: ${formatDate(new Date())}`);
 
-    doc.text("RESUMEN", { underline: true });
-    doc.moveDown(0.5);
+    doc.moveDown(2);
 
-    doc.text(`Total trabajado: ${formatMinutes(result.totals.workedMinutes)}`);
-    doc.text(`Dias trabajados: ${result.totals.workedDays}`);
-
-    doc.moveDown();
-
-    doc.fontSize(10);
+    doc.font("Helvetica-Bold");
 
     doc.text("Fecha", 40);
     doc.text("Inicio", 150);
     doc.text("Fin", 250);
     doc.text("Tiempo", 350);
 
+    doc.moveDown(0.3);
+
     doc.moveTo(40, doc.y)
       .lineTo(550, doc.y)
       .stroke();
 
-    doc.moveDown();
+    doc.moveDown(0.5);
+
+    doc.font("Helvetica");
 
     for (const d of result.days) {
-      const date = formatDate(d.date);
+      const startOfDay = new Date(d.date);
+      const endOfDay = new Date(startOfDay);
+      endOfDay.setDate(endOfDay.getDate() + 1);
 
-      const start = "--";
-      const end = "--";
+      const histories = await this.prisma.workdayHistory.findMany({
+        where: {
+          employeeId,
+          startTime: {
+            gte: startOfDay,
+            lt: endOfDay,
+          },
+        },
+        orderBy: { startTime: "asc" },
+      });
+
+      if (histories.length === 0) continue;
+
+      const start = histories[0]?.startTime;
+      const end = histories[histories.length - 1]?.endTime;
 
       const worked = formatMinutes(d.workedMinutes);
 
-      doc.text(date, 40);
-      doc.text(start, 150);
-      doc.text(end, 250);
+      doc.text(formatDate(d.date), 40);
+      doc.text(formatTime(start), 150);
+      doc.text(formatTime(end), 250);
       doc.text(worked, 350);
 
       doc.moveDown(0.5);
@@ -559,7 +578,7 @@ export class WorkService {
 
     doc.end();
 
-    return await new Promise<Buffer>((resolve) => {
+    return await new Promise<Bufferr>((resolve) => {
       stream.on("end", () => {
         resolve(Buffer.concat(buffers));
       });
