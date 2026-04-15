@@ -533,10 +533,12 @@ export class WorkService {
 
     doc.font("Helvetica-Bold");
 
-    doc.text("Fecha", 40);
-    doc.text("Inicio", 150);
-    doc.text("Fin", 250);
-    doc.text("Tiempo", 350);
+    const startY = doc.y;
+
+    doc.text("Fecha", 40, startY);
+    doc.text("Inicio", 150, startY);
+    doc.text("Fin", 250, startY);
+    doc.text("Tiempo", 350, startY);
 
     doc.moveDown(0.3);
 
@@ -571,6 +573,8 @@ export class WorkService {
       map.get(key)!.push(h);
     }
 
+    let y = doc.y;
+
     for (const d of result.days) {
       const date = formatDate(d.date);
 
@@ -587,12 +591,17 @@ export class WorkService {
         doc.fillColor("black");
       }
 
-      doc.text(date, 40);
-      doc.text(formatTime(start), 150);
-      doc.text(formatTime(end), 250);
-      doc.text(worked, 350);
+      doc.text(date, 40, y);
+      doc.text(formatTime(start), 150, y);
+      doc.text(formatTime(end), 250, y);
+      doc.text(worked, 350, y);
 
-      doc.moveDown(0.5);
+      y += 20;
+
+      if (y > 750) {
+        doc.addPage();
+        y = 50;
+      }
     }
 
     doc.fillColor("black");
