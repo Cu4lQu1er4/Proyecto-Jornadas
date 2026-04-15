@@ -94,6 +94,14 @@ function toUtcRange(localDate: Date) {
   };
 }
 
+function addDaysLocal(date: Date, days: number) {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() + days
+  );
+}
+
 async function logSystemDecisionOnce(
   prisma: PrismaService,
   params: {
@@ -401,7 +409,7 @@ export class AttendanceSummaryService {
         ? today
         : periodEnd;
 
-    while (current <= end) {
+    while (current.getTime() <= end.getTime()) {
       const ymd = formatLocalYmd(current);
 
       const day = await this.getDay(employeeId, ymd);
@@ -411,7 +419,7 @@ export class AttendanceSummaryService {
         deltaMinutes: day.isOpen ? 0 : day.deltaMinutes
       });
 
-      current.setDate(current.getDate() + 1);
+      current = addDaysLocal(current, 1);
     }
 
     const totalWorkedMinutes = days.reduce(
