@@ -271,4 +271,22 @@ export class WorkController {
   deleteEmployee(@Param('id') id: string) {
     return this.service.deleteEmployee(id);
   }
+
+  @Get("pdf/:employeeId/:periodId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  async downloadPdf(
+    @Param("employeeId") employeeId: string,
+    @Param("periodId") periodId: string,
+    @Res() res: Response,
+  ) {
+    const pdfBuffer = await this.service.generatePdf(employeeId, perioId);
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename=reporte-${employeeId}.pdf`,
+    });
+
+    res.send(pdfBuffer);
+  }
 }

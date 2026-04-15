@@ -21,6 +21,28 @@ import { getNextAllowedMarks } from "./domain/rules";
 import { MarkType } from "./domain/rules";
 import { calculatePauseMinutesDetailed } from "./domain/calc";
 import { AttendanceSummaryService } from "./application/attendance-summary.service";
+import PDFDocument from "pdfkit";
+import { PassThrough } from "stream";
+
+function formatMinutes(mins: number) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}h ${m}m`;
+}
+
+function formatDate(date: Date | string) {
+  const d = new Date(date);
+  return d.toLocaleDateString("es-CO");
+}
+
+function formatTime(date?: Date | null) {
+  if (!date) return "--";
+  const d = new Date(date);
+  return d.toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 @Injectable()
 export class WorkService {
@@ -459,6 +481,88 @@ export class WorkService {
       });
 
       return { success: true };
+    });
+  }
+
+  async generatePdf(employeeId: string, periodId: string): Promise<Buffer> {
+    const result = await this.attendanceService.getPeriod(employeeId, periodId);
+
+    const employee = await this.prisma.user.findUnique({
+      where: { id: employeeId },
+      select: {
+        document: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+
+    if (!employee) throw new Error("Empleado no existe");
+
+    const name = `${employee.firstName ?? ""} ${employee.lastName ?? ""}`.trim();
+
+    const doc = new PDFDocument({ margin: 40 });
+    const stream = new PassThrough();
+    const buffers: Buffer[] = [];
+
+    doc.pipe(stream);
+
+    stream.on("data", (chunk) => buffers.push(chunk));
+
+    doc.fontSize(16).text("REPORTE DE ASISTENCIA", { align: "center" });
+    doc.moveDown();
+
+    doc.fontSize(10);
+    doc.text(`Empleado: ${name || employee.document}`);
+    doc.text(`Documento: ${employee.document}`);
+    doc.text(
+      `Periodo: ${formatDate(result.period.startDate)} - ${formatDate(result.period.endDate)}`
+    );
+    doc.text(`Generando: ${formatDate(new Date())}`);
+    doc.moveDown();
+
+    doc.text("RESUMEN", { underline: true });
+    doc.moveDown(0.5);
+
+    doc.text(`Total trabajado: ${formatMinutes(result.totals.workedMinutes)}`);
+    doc.text(`Dias trabajados: ${result.totals.workedDays}`);
+
+    doc.moveDown();
+
+    doc.fontSize(10);
+
+    doc.text("Fecha", 40);
+    doc.text("Inicio", 150);
+    doc.text("Fin", 250);
+    doc.text("Tiempo", 350);
+
+    doc.moveTo(40, doc.y)
+      .lineTo(550, doc.y)
+      .stroke();
+
+    doc.moveDown();
+
+    for (const d of result.days) {
+      const date = formatDate(d.date);
+
+      const start = "--";
+      const end = "--";
+
+      const worked = formatMinutes(d.workedMinutes);
+
+      doc.text(date, 40);
+      doc.text(start, 150);
+      doc.text(end, 250);
+      doc.text(worked, 350);
+
+      doc.moveDown(0.5);
+    }
+
+    doc.end();
+
+    result await new Promise((resolve) => {
+      stream.on("end", () => {
+        resolve(Buffer.concat(buffers));
+      });
     });
   }
 }
