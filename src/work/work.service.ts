@@ -559,7 +559,7 @@ export class WorkService {
 
     doc.end();
 
-    result await new Promise<Buffer>((resolve) => {
+    return await new Promise<Buffer>((resolve) => {
       stream.on("end", () => {
         resolve(Buffer.concat(buffers));
       });

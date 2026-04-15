@@ -13,7 +13,7 @@ import {
   Delete,
   Res,
 } from "@nestjs/common";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 import { WorkService } from "./work.service";
 import { PeriodHasOpenWorkdaysError, WorkdayOpenError } from "./domain/errors";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
@@ -279,7 +279,7 @@ export class WorkController {
   async downloadPdf(
     @Param("employeeId") employeeId: string,
     @Param("periodId") periodId: string,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const pdfBuffer = await this.service.generatePdf(employeeId, periodId);
 
