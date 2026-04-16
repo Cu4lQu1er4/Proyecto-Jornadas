@@ -23,7 +23,7 @@ import { calculatePauseMinutesDetailed } from "./domain/calc";
 import { AttendanceSummaryService } from "./application/attendance-summary.service";
 import PDFDocument from "pdfkit";
 import { PassThrough } from "stream";
-import { join } from "path";
+import { join, resolve } from "path";
 
 function formatMinutes(mins: number) {
   const h = Math.floor(mins / 60);
@@ -508,20 +508,26 @@ export class WorkService {
     const buffers: Buffer[] = [];
 
     doc.pipe(stream);
-
     stream.on("data", (chunk) => buffers.push(chunk));
 
     try {
       const logoPath = join(process.cwd(), "assets", "logo.png");
-      doc.image(logoPath, 40, 40, { width: 80 });
-    } catch (e) {
-      console.log("No se pudo cargar el logo");
+      doc.image(logoPath, 40, 30, { width: 90 });
+    } catch {
+      console.log("No se pudo cargar logo");
     }
 
-    doc.fontSize(16).text("REPORTE DE ASISTENCIA", { align: "center" });
-    doc.moveDown();
+    doc
+      .fontSize(18)
+      .font("Helvetica-Bold")
+      .text("REPORTE DE ASISTENCIA", 0, 40, {
+        align: "center",
+      });
 
-    doc.fontSize(10);
+    doc.moveDown(3);
+
+    doc.fontSize(10).font("Helvetica");
+
     doc.text(`Empleado: ${name || employee.document}`);
     doc.text(`Documento: ${employee.document}`);
     doc.text(
@@ -531,80 +537,66 @@ export class WorkService {
 
     doc.moveDown(2);
 
+    const tableTop = doc.y;
+
+    const colX = {
+      date: 40,
+      start: 150,
+      end: 260,
+      worked: 370,
+    };
+
     doc.font("Helvetica-Bold");
 
-    const startY = doc.y;
+    doc.text("Fecha", colX.date, tableTop);
+    doc.text("Inicio", colX.start, tableTop);
+    doc.text("Fin", colX.end, tableTop);
+    doc.text("Tiempo", colX.worked, tableTop);
 
-    doc.text("Fecha", 40, startY);
-    doc.text("Inicio", 150, startY);
-    doc.text("Fin", 250, startY);
-    doc.text("Tiempo", 350, startY);
-
-    doc.moveDown(0.3);
-
-    doc.moveTo(40, doc.y)
-      .lineTo(550, doc.y)
+    doc.moveTo(40, tableTop + 15)
+      .lineTo(550, tableTop + 15)
       .stroke();
-
-    doc.moveDown(0.5);
 
     doc.font("Helvetica");
 
-    const histories = await this.prisma.workdayHistory.findMany({
-      where: {
-        employeeId,
-        startTime: {
-          gte: result.period.startDate,
-          lt: result.period.endDate,
-        },
-      },
-      orderBy: { startTime: "asc" },
-    });
-
-    const map = new Map<string, typeof histories>();
-
-    for (const h of histories) {
-      const key = formatDate(h.startTime);
-
-      if (!map.has(key)) {
-        map.set(key, []);
-      }
-
-      map.get(key)!.push(h);
-    }
-
-    let y = doc.y;
+    let y = tableTop + 25;
 
     for (const d of result.days) {
-      const date = formatDate(d.date);
+      const startOfDay = new Date(d.date);
+      const endOfDay = new Date(startOfDay);
+      endOfDay.setDate(endOfDay.getDate() + 1);
 
-      const dayHistories = map.get(date) ?? [];
+      const histories = await this.prisma.workdayHistory.findMany({
+        where: {
+          employeeId,
+          startTime: {
+            gte: startOfDay,
+            lt: endOfDay,
+          },
+        },
+        orderBy: { startTime: "asc" },
+      });
 
-      const start = dayHistories[0]?.startTime ?? null;
-      const end = dayHistories[dayHistories.length - 1]?.endTime ?? null;
+      let start = "--";
+      let end = "--";
 
-      const worked = formatMinutes(d.workedMinutes);
-
-      if (d.workedMinutes === 0) {
-        doc.fillColor("gray");
-      } else {
-        doc.fillColor("black");
+      if (histories.length > 0) {
+        start = formatTime(histories[0].startTime);
+        end = formatTime(histories[histories.length - 1].endTime);
       }
 
-      doc.text(date, 40, y);
-      doc.text(formatTime(start), 150, y);
-      doc.text(formatTime(end), 250, y);
-      doc.text(worked, 350, y);
+      doc.text(formatDate(d.date), colX.date, y);
+      doc.text(start, colX.start, y);
+      doc.text(end, colX.end, y);
+      doc.text(formatMinutes(d.workedMinutes), colX.worked, y);
 
       y += 20;
 
       if (y > 750) {
         doc.addPage();
-        y = 50;
+        y = 40;
       }
     }
-
-    doc.fillColor("black");
 
     doc.end();
 
