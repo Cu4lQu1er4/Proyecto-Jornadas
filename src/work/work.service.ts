@@ -526,14 +526,17 @@ export class WorkService {
 
     doc.moveDown(3);
 
+    const baseX = 40;
+
     doc.fontSize(10).font("Helvetica");
 
-    doc.text(`Empleado: ${name || employee.document}`);
-    doc.text(`Documento: ${employee.document}`);
+    doc.text(`Empleado: ${name || employee.document}`, baseX);
+    doc.text(`Documento: ${employee.document}`, baseX);
     doc.text(
       `Periodo: ${formatDate(result.period.startDate)} - ${formatDate(result.period.endDate)}`
+      baseX
     );
-    doc.text(`Generado: ${formatDate(new Date())}`);
+    doc.text(`Generado: ${formatDate(new Date())}`, baseX);
 
     doc.moveDown(2);
 
@@ -583,6 +586,12 @@ export class WorkService {
       if (histories.length > 0) {
         start = formatTime(histories[0].startTime);
         end = formatTime(histories[histories.length - 1].endTime);
+      }
+
+      if (d.workedMinutes === 0) {
+        doc.fillColor("#9CA3AF");
+      } else {
+        doc.fillColor("black");
       }
 
       doc.text(formatDate(d.date), colX.date, y);
