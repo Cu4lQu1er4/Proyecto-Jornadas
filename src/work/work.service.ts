@@ -533,7 +533,7 @@ export class WorkService {
     doc.text(`Empleado: ${name || employee.document}`, baseX);
     doc.text(`Documento: ${employee.document}`, baseX);
     doc.text(
-      `Periodo: ${formatDate(result.period.startDate)} - ${formatDate(result.period.endDate)}`
+      `Periodo: ${formatDate(result.period.startDate)} - ${formatDate(result.period.endDate)}`,
       baseX
     );
     doc.text(`Generado: ${formatDate(new Date())}`, baseX);
