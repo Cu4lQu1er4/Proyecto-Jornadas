@@ -2,9 +2,22 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
 
 function parseLocalDate(ymd: string): Date {
-  const [y, m, d] = ymd.split("-").map(Number);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
 
-  const date = new Date(y, m - 1, d);
+  if (!m) {
+    throw new Error(`Invalid date format: ${ymd}`);
+  }
+
+  const date = new Date(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3])
+  );
+
+  if (isNaN(date.getTime())) {
+    throw new Error(`Fecha invalida: ${ymd}`);
+  }
+
   date.setHours(0, 0, 0, 0);
 
   return date;
@@ -54,26 +67,44 @@ export class EmployeeScheduleService {
     scheduleTemplateId: string,
     effectiveFrom: string,
   ) {
-    const start = effectiveFrom
+    const hasValidate =
+      typeof effectiveFrom === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom);
+
+    const start = hasValidate
       ? parseLocalDate(effectiveFrom)
       : (() => {
-          const now = new Date();
-          return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        })();
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      })();
+
+    if (isNaN(start.getTime())) {
+      throw new Error(`Fecha invalida en asignacion de horario: ${effectiveFrom}`);
+    }
 
     const end = new Date(start);
     end.setDate(end.getDate() - 1);
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.employeeScheduleAssignment.updateMany({
+      const activeAssignment = await tx.employeeScheduleAssignment.findFirst({
         where: {
           employeeId,
           effectiveTo: null,
         },
-        data: {
-          effectiveTo: end,
-        },
+        select: { id: true },
       });
+
+      if (activeAssignment) {
+        await tx.employeeScheduleAssignment.updateMany({
+          where: {
+            employeeId,
+            effectiveTo: null,
+          },
+          data: {
+            effectiveTo: end,
+          },
+        });
+      }
 
       return tx.employeeScheduleAssignment.create({
         data: {
