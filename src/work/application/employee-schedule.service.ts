@@ -1,9 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
 
-function parseLocalDate(ymd: string) {
+function parseLocalDate(ymd: string): Date {
   const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(y, m - 1, d);
+
+  const date = new Date(y, m - 1, d);
+  date.setHours(0, 0, 0, 0);
+
+  return date;
 }
 
 @Injectable()
@@ -52,20 +56,23 @@ export class EmployeeScheduleService {
   ) {
     const start = effectiveFrom
       ? parseLocalDate(effectiveFrom)
-      : new Date(
-        new Date().getFullYear(),
-        new Date().getMonth(),
-        new Date().getDate()
-      );
+      : (() => {
+          const now = new Date();
+          return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        })();
+
+    const end = new Date(start);
+    end.setDate(end.getDate() - 1);
 
     return this.prisma.$transaction(async (tx) => {
       await tx.employeeScheduleAssignment.updateMany({
         where: {
           employeeId,
           effectiveTo: null,
+          effectiveFrom: { lt: start },
         },
         data: {
-          effectiveTo: start,
+          effectiveTo: end,
         },
       });
 
