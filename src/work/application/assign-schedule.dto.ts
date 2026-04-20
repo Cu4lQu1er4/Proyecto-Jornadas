@@ -1,4 +1,4 @@
-import { IsString, IsDateString } from "class-validator";
+import { IsString } from "class-validator";
 
 export class AssignScheduleDto {
   @IsString()
@@ -7,6 +7,6 @@ export class AssignScheduleDto {
   @IsString()
   scheduleTemplateId!: string;
 
-  @IsDateString()
+  @IsString()
   effectiveFrom!: string;
 }
