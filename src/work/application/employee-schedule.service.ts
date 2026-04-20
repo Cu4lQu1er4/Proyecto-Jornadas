@@ -69,7 +69,6 @@ export class EmployeeScheduleService {
         where: {
           employeeId,
           effectiveTo: null,
-          effectiveFrom: { lt: start },
         },
         data: {
           effectiveTo: end,
